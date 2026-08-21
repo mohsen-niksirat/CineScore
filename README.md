@@ -21,7 +21,7 @@ A sleek, single-page web app that analyzes movies and TV series using ratings fr
 
 ## 🚀 Live Demo
 
-👉 **[View Live](https://niksiratforex-ux.github.io/CineScore/)**
+👉 **[View Live](https://mohsen-niksirat.github.io/CineScore/)**
 
 ## 📸 Screenshots
 
@@ -101,6 +101,6 @@ If you found this useful, give it a ⭐ on GitHub!
 
 <div align="center">
 
-**Built with ❤️ by [Mohsen Niksirat](https://github.com/niksiratforex-ux)**
+**Built with ❤️ by [Mohsen Niksirat](https://github.com/mohsen-niksirat)**
 
 </div>
