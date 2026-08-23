@@ -392,6 +392,7 @@ function main() {
         }
       }
       await sleep(1050);
+      if ((k + 1) % 100 === 0) console.log(`  Wiki ${k + 1}/${Math.min(WIKI_BUDGET, pendingWiki.length)} (ok=${wikiOk})`);
     }
     console.log(`Wikipedia enriched this run: ${wikiOk}`);
 
