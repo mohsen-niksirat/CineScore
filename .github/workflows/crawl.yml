@@ -13,10 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Run crawler
         run: node scripts/crawl.js
@@ -24,13 +26,26 @@ jobs:
           OMDB_KEYS: ${{ secrets.OMDB_KEYS }}
           OMDB_KEY: ${{ secrets.OMDB_KEY }}
           TMDB_KEY: ${{ secrets.TMDB_KEY }}
-          OMDB_BUDGET: '800'
-          WIKI_BUDGET: '2000'
+          OMDB_BUDGET: '6300'
+          WIKI_BUDGET: '4000'
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add public/db.json public/titles.json public/crawl_state.json
-          git diff --cached --quiet || git commit -m "chore: update movie database $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git push
+          if git diff --cached --quiet; then
+            echo "No data changes — nothing to push"
+            exit 0
+          fi
+          git commit -m "chore: update movie database $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          # Fetch latest remote, rebase our data commit on top. If the generated
+          # data files conflict, keep the freshly-crawled data (--theirs).
+          for i in 1 2 3 4 5; do git fetch origin main && break || sleep 5; done
+          git rebase origin/main 2>/dev/null || true
+          if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+            git checkout --theirs public/ 2>/dev/null || true
+            git add public/
+            GIT_EDITOR=true git rebase --continue 2>/dev/null || true
+          fi
+          for i in 1 2 3 4 5; do git push origin HEAD:main && break || sleep 5; done
