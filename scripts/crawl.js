@@ -341,9 +341,13 @@ function main() {
     for (let k = 0; k < Math.min(WIKI_BUDGET, pendingWiki.length); k++) {
       const rec = pendingWiki[k];
       try {
-        if (await wikiEnrich(rec)) wikiOk++;
+        const ok = await wikiEnrich(rec);
+        wikiDone.add(rec.i); // success or definitive 'no page' — safe to skip next time
+        if (ok) wikiOk++;
         wikiBlocked = 0;
       } catch (e) {
+        // transient/blocked errors (403/429/timeout): do NOT mark done,
+        // so these titles are retried on the next run
         console.warn('Wiki fail', rec.i, rec.t, e.message);
         if (e.message.indexOf('403') !== -1 || e.message.indexOf('429') !== -1) wikiBlocked++;
         else wikiBlocked = 0;
@@ -352,7 +356,6 @@ function main() {
           break;
         }
       }
-      wikiDone.add(rec.i);
       await sleep(1050);
     }
     console.log(`Wikipedia enriched this run: ${wikiOk}`);
