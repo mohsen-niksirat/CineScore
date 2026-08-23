@@ -21,6 +21,7 @@ jobs:
       - name: Run crawler
         run: node scripts/crawl.js
         env:
+          OMDB_KEYS: ${{ secrets.OMDB_KEYS }}
           OMDB_KEY: ${{ secrets.OMDB_KEY }}
           TMDB_KEY: ${{ secrets.TMDB_KEY }}
           OMDB_BUDGET: '800'

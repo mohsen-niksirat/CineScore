@@ -34,9 +34,17 @@ const DB_FILE = path.join(PUBLIC, 'db.json');
 const TITLES_FILE = path.join(PUBLIC, 'titles.json');
 const STATE_FILE = path.join(PUBLIC, 'crawl_state.json');
 
-const OMDB_KEY = process.env.OMDB_KEY || 'a6a22901';
+const OMDB_KEYS = (process.env.OMDB_KEYS || process.env.OMDB_KEY || 'a6a22901')
+  .split(',').map((k) => k.trim()).filter(Boolean);
+let omdbKeyIdx = 0;
+function nextOmdbKey() {
+  if (!OMDB_KEYS.length) return '';
+  const k = OMDB_KEYS[omdbKeyIdx % OMDB_KEYS.length];
+  omdbKeyIdx++;
+  return k;
+}
 const TMDB_KEY = process.env.TMDB_KEY || '3ecc5636799c19193a8d5be489096f30';
-const OMDB_BUDGET = parseInt(process.env.OMDB_BUDGET || '800', 10);
+const OMDB_BUDGET = parseInt(process.env.OMDB_BUDGET || String(900 * Math.max(1, (process.env.OMDB_KEYS || process.env.OMDB_KEY || 'x').split(',').filter((k) => k.trim()).length)), 10);
 const WIKI_BUDGET = parseInt(process.env.WIKI_BUDGET || '2000', 10);
 const TMDB_NEW_MAX = parseInt(process.env.TMDB_NEW_MAX || '250', 10);
 const SKIP_TMDB = process.env.SKIP_TMDB === '1';
@@ -179,35 +187,45 @@ function parseOmdbRatings(ratings) {
 }
 
 async function omdbEnrich(rec) {
-  const j = await fetchJSON(
-    `https://www.omdbapi.com/?apikey=${OMDB_KEY}&i=${encodeURIComponent(rec.i)}&plot=short`
-  );
-  if (!j || j.Response === 'False') return false;
-  const { rt, mc } = parseOmdbRatings(j.Ratings);
-  if (rt) rec.rt = rt;
-  if (mc) rec.mc = mc;
-  const r = parseFloat(j.imdbRating);
-  if (!isNaN(r) && r > 0) rec.r = r;
-  const v = parseInt(String(j.imdbVotes || '').replace(/,/g, ''), 10);
-  if (!isNaN(v) && v > 0) rec.v = v;
-  if (j.Director && j.Director !== 'N/A' && !rec.dir) rec.dir = j.Director;
-  if (j.Writer && j.Writer !== 'N/A' && !rec.wr) rec.wr = j.Writer;
-  if (j.Actors && j.Actors !== 'N/A' && !rec.ac) {
-    rec.ac = j.Actors.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 8);
+  // Try each key in rotation; 401 = bad key, try the next one
+  for (let t = 0; t < OMDB_KEYS.length; t++) {
+    const key = nextOmdbKey();
+    let j;
+    try {
+      j = await fetchJSON(
+        `https://www.omdbapi.com/?apikey=${key}&i=${encodeURIComponent(rec.i)}&plot=short`
+      );
+    } catch (e) {
+      if (e.message.indexOf('401') !== -1) continue; // bad key -> try next
+      throw e; // real failure (network/429/5xx) -> stop the run
+    }
+    if (!j || j.Response === 'False') return false; // not found in OMDb
+    const { rt, mc } = parseOmdbRatings(j.Ratings);
+    if (rt) rec.rt = rt;
+    if (mc) rec.mc = mc;
+    const r = parseFloat(j.imdbRating);
+    if (!isNaN(r) && r > 0) rec.r = r;
+    const v = parseInt(String(j.imdbVotes || '').replace(/,/g, ''), 10);
+    if (!isNaN(v) && v > 0) rec.v = v;
+    if (j.Director && j.Director !== 'N/A' && !rec.dir) rec.dir = j.Director;
+    if (j.Writer && j.Writer !== 'N/A' && !rec.wr) rec.wr = j.Writer;
+    if (j.Actors && j.Actors !== 'N/A' && !rec.ac) {
+      rec.ac = j.Actors.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 8);
+    }
+    if (j.Plot && j.Plot !== 'N/A' && !rec.pl) rec.pl = j.Plot.slice(0, 900);
+    if (j.Genre && j.Genre !== 'N/A' && !rec.g) rec.g = j.Genre;
+    if (j.Awards && j.Awards !== 'N/A' && !rec.aw) rec.aw = j.Awards;
+    if (j.BoxOffice && j.BoxOffice !== 'N/A' && j.BoxOffice !== '/usr/bin/bash' && !rec.bo) rec.bo = j.BoxOffice;
+    if (j.Language && j.Language !== 'N/A' && !rec.lo) rec.lo = j.Language;
+    if (j.Country && j.Country !== 'N/A' && !rec.co) rec.co = j.Country;
+    if (j.Production && j.Production !== 'N/A' && !rec.pr) rec.pr = j.Production;
+    const rm = parseInt(String(j.Runtime || '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(rm) && rm > 0 && !rec.rm) rec.rm = rm;
+    if (j.totalSeasons && !rec.se) rec.se = parseInt(j.totalSeasons, 10) || 0;
+    return true;
   }
-  if (j.Plot && j.Plot !== 'N/A' && !rec.pl) rec.pl = j.Plot.slice(0, 900);
-  if (j.Genre && j.Genre !== 'N/A' && !rec.g) rec.g = j.Genre;
-  if (j.Awards && j.Awards !== 'N/A' && !rec.aw) rec.aw = j.Awards;
-  if (j.BoxOffice && j.BoxOffice !== 'N/A' && j.BoxOffice !== '$0' && !rec.bo) rec.bo = j.BoxOffice;
-  if (j.Language && j.Language !== 'N/A' && !rec.lo) rec.lo = j.Language;
-  if (j.Country && j.Country !== 'N/A' && !rec.co) rec.co = j.Country;
-  if (j.Production && j.Production !== 'N/A' && !rec.pr) rec.pr = j.Production;
-  const rm = parseInt(String(j.Runtime || '').replace(/[^0-9]/g, ''), 10);
-  if (!isNaN(rm) && rm > 0 && !rec.rm) rec.rm = rm;
-  if (j.totalSeasons && !rec.se) rec.se = parseInt(j.totalSeasons, 10) || 0;
-  return true;
+  return false; // all keys rejected
 }
-
 // ------------------------------------------------------------------ Wikipedia
 async function wikiEnrich(rec) {
   const title = rec.t.replace(/\(.*?\)/g, '').trim();
@@ -314,7 +332,7 @@ function main() {
     const pendingOmdb = items
       .filter((x) => !x.rt && !x.mc && !omdbDone.has(x.i))
       .sort((a, b) => (b.v || 0) - (a.v || 0));
-    console.log(`OMDb pending: ${pendingOmdb.length}, budget: ${OMDB_BUDGET}`);
+    console.log(`OMDb pending: ${pendingOmdb.length}, budget: ${OMDB_BUDGET}, keys: ${OMDB_KEYS.length}`);
     let omdbOk = 0;
     for (let k = 0; k < Math.min(OMDB_BUDGET, pendingOmdb.length); k++) {
       const rec = pendingOmdb[k];
@@ -323,13 +341,13 @@ function main() {
         else omdbDone.add(rec.i); // not found in OMDb -> don't retry
       } catch (e) {
         if (e.message.indexOf('401') !== -1) {
-          console.error('OMDb key rejected (HTTP 401). Set a valid OMDB_KEY (GitHub Actions secret or env var) — current key will not work.');
+          console.error('ALL OMDb keys rejected (HTTP 401). Set valid keys: OMDB_KEYS (comma-separated) or OMDB_KEY as GitHub Actions secrets.');
         }
         console.warn('OMDb fail', rec.i, rec.t, e.message);
         break; // likely rate limit / network / bad key — stop for this run
       }
       omdbDone.add(rec.i);
-      await sleep(1150); // stay under the ~60/min OMDb limit
+      await sleep(Math.max(180, Math.round(1150 / OMDB_KEYS.length))); // per-key ~60/min OMDb limit
     }
     console.log(`OMDb enriched this run: ${omdbOk}`);
 
