@@ -46,7 +46,7 @@ const IMG = 'https://image.tmdb.org/t/p/';
 // ------------------------------------------------------------------ http
 function fetch(url, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { timeout: timeoutMs }, (res) => {
+    const req = https.get(url, { timeout: timeoutMs, headers: { 'User-Agent': 'CineScoreCrawler/2.0 (movie data aggregator; https://github.com/mohsen-niksirat/CineScore)' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         return fetch(res.headers.location, timeoutMs).then(resolve).catch(reject);
@@ -322,8 +322,11 @@ function main() {
         if (await omdbEnrich(rec)) omdbOk++;
         else omdbDone.add(rec.i); // not found in OMDb -> don't retry
       } catch (e) {
+        if (e.message.indexOf('401') !== -1) {
+          console.error('OMDb key rejected (HTTP 401). Set a valid OMDB_KEY (GitHub Actions secret or env var) — current key will not work.');
+        }
         console.warn('OMDb fail', rec.i, rec.t, e.message);
-        break; // likely rate limit / network — stop for this run
+        break; // likely rate limit / network / bad key — stop for this run
       }
       omdbDone.add(rec.i);
       await sleep(1150); // stay under the ~60/min OMDb limit
@@ -334,12 +337,20 @@ function main() {
     const pendingWiki = items.filter((x) => !x.we && !wikiDone.has(x.i));
     console.log(`Wikipedia pending: ${pendingWiki.length}, budget: ${WIKI_BUDGET}`);
     let wikiOk = 0;
+    let wikiBlocked = 0;
     for (let k = 0; k < Math.min(WIKI_BUDGET, pendingWiki.length); k++) {
       const rec = pendingWiki[k];
       try {
         if (await wikiEnrich(rec)) wikiOk++;
+        wikiBlocked = 0;
       } catch (e) {
         console.warn('Wiki fail', rec.i, rec.t, e.message);
+        if (e.message.indexOf('403') !== -1 || e.message.indexOf('429') !== -1) wikiBlocked++;
+        else wikiBlocked = 0;
+        if (wikiBlocked >= 8) {
+          console.error('Wikipedia is blocking us (HTTP 403/429 x8). Stopping this phase — will resume next run.');
+          break;
+        }
       }
       wikiDone.add(rec.i);
       await sleep(1050);

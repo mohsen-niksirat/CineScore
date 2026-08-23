@@ -32,7 +32,7 @@ button{font-family:inherit}
 /* ---------- nav ---------- */
 nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:10px 18px;background:rgba(8,8,15,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
 [data-theme="light"] nav{background:rgba(255,255,255,.92)}
-.logo{font-size:1.1rem;font-weight:900;color:var(--text);white-space:nowrap}
+.logo{font-size:1.1rem;font-weight:900;color:var(--text);white-space:nowrap;cursor:pointer;user-select:none}
 .logo b{color:var(--accent)}
 .nr{margin-inline-start:auto;display:flex;align-items:center;gap:8px}
 .nb{background:var(--glass);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:700;cursor:pointer;transition:.2s}
@@ -107,6 +107,8 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;pa
 .dv{display:none}.dv.show{display:block;animation:fu .35s ease}
 @keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 .bb{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--glass);border:1px solid var(--border);border-radius:8px;color:var(--text2);font:inherit;font-size:.75rem;font-weight:600;cursor:pointer;transition:.2s;margin-bottom:16px}
+.dnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.dnav .bb{margin-bottom:0}
 .bb:hover{border-color:var(--accent);color:var(--accent)}
 .dh{display:grid;grid-template-columns:220px 1fr;gap:24px;margin-bottom:22px}
 @media(max-width:700px){.dh{grid-template-columns:1fr;text-align:center}.dh .dbx{justify-content:center}}
@@ -254,7 +256,7 @@ footer a:hover{color:var(--accent)}
 </head>
 <body>
 <nav>
-  <span class="logo">🎬 <b>Cine</b>Score</span>
+  <span class="logo" onclick="goHome()" role="button" tabindex="0" title="CineScore">🎬 <b>Cine</b>Score</span>
   <span class="nr">
     <button class="nb" id="langBtn" title="Language / زبان"></button>
     <button class="nb" id="themeBtn">🌙</button>
@@ -370,7 +372,7 @@ var I18N = {
     cancelCompare: 'Cancel', vs: 'vs',
     epRatings: 'Episode ratings', loadEp: 'Load episode ratings', noEp: 'No episode data available.',
     interesting: 'Did you know', wikiMore: 'More on Wikipedia', keywords: 'Keywords', trailer: 'Trailer',
-    back: '← Back to results', notFound: 'Title not found.',
+    back: '← Back to results', home: 'Home', notFound: 'Title not found.',
     liveErr: 'Could not load live data (offline or quota). Showing available info.',
     madeBy: 'Built with ❤ by', dataFrom: 'Data:',
     langName: 'فارسی'
@@ -401,7 +403,7 @@ var I18N = {
     cancelCompare: 'انصراف', vs: 'در برابر',
     epRatings: 'امتیاز اپیزودها', loadEp: 'بارگذاری امتیاز اپیزودها', noEp: 'داده‌ای برای اپیزودها موجود نیست.',
     interesting: 'آیا می‌دانستید؟', wikiMore: 'بیشتر در ویکی‌پدیا', keywords: 'کلمات کلیدی', trailer: 'تریلر',
-    back: '← بازگشت به نتایج', notFound: 'عنوان پیدا نشد.',
+    back: '← بازگشت به نتایج', home: 'خانه', notFound: 'عنوان پیدا نشد.',
     liveErr: 'امکان دریافت داده زنده نیست (آفلاین یا محدودیت). اطلاعات موجود نمایش داده می‌شود.',
     madeBy: 'ساخته شده با ❤ توسط', dataFrom: 'داده‌ها:',
     langName: 'English'
@@ -835,6 +837,12 @@ function dlItem(x) {
     '<button class="dl-copy" title="' + t('copy') + '" onclick="copyDl(event,\'' + esc(x.u) + '\')">&#128203;</button>' +
     '<a href="' + esc(x.u) + '" target="_blank" rel="noopener noreferrer">' + t('download') + ' &#11015;</a></div>';
 }
+function subFromUrl(u) {
+  var url = String(u || '').toLowerCase();
+  if (url.indexOf('/dubbed/') !== -1 || url.indexOf('.dubbed.') !== -1 || url.indexOf('.farsi.dubbed.') !== -1) return 'Dubbed';
+  if (url.indexOf('/nosub/') !== -1 || url.indexOf('.nosub.') !== -1) return 'NoSub';
+  return 'SoftSub';
+}
 function subLabel(sub) {
   if (sub === 'Dubbed') return { txt: t('dubbed'), cls: 'dub' };
   if (sub === 'NoSub') return { txt: t('noSub'), cls: 'nosub' };
@@ -860,9 +868,25 @@ function renderDownloadHTML(rec) {
       h += '</div>';
     });
   } else if (rec.l && rec.l.length) {
-    h += '<div class="dl-sec">';
-    rec.l.forEach(function (x) { h += dlItem(x); });
-    h += '</div>';
+    var groups = {};
+    rec.l.forEach(function (x) {
+      var k = subFromUrl(x.u);
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(x);
+    });
+    var gkeys = Object.keys(groups);
+    if (gkeys.length > 1) {
+      gkeys.forEach(function (k) {
+        var lb = subLabel(k);
+        h += '<div class="dl-sec"><div class="dl-sec-t"><span class="dl-chip ' + lb.cls + '">' + esc(lb.txt) + '</span></div>';
+        groups[k].forEach(function (x) { h += dlItem(x); });
+        h += '</div>';
+      });
+    } else {
+      h += '<div class="dl-sec">';
+      rec.l.forEach(function (x) { h += dlItem(x); });
+      h += '</div>';
+    }
   } else {
     h = '<div class="dl-empty">' + t('noLinks') + '</div>';
   }
@@ -1057,7 +1081,7 @@ function openCompare(a, b) {
   });
 }
 function renderCompareHTML(a, b) {
-  var h = '<button class="bb" onclick="goBack()">' + t('back') + '</button>';
+  var h = '<div class="dnav"><button class="bb" onclick="goHome()">🏠 ' + t('home') + '</button><button class="bb" onclick="goBack()">' + t('back') + '</button></div>';
   h += '<div class="cmp-g">';
   [a, b].forEach(function (rec, idx) {
     var vb = verdictOf(rec);
@@ -1104,7 +1128,7 @@ function renderDetail(rec) {
   document.getElementById('dv').classList.add('show');
   var dv = document.getElementById('dv');
   var vb = verdictOf(rec);
-  var h = '<button class="bb" onclick="goBack()">' + t('back') + '</button>';
+  var h = '<div class="dnav"><button class="bb" onclick="goHome()">🏠 ' + t('home') + '</button><button class="bb" onclick="goBack()">' + t('back') + '</button></div>';
   h += '<div class="dh">';
   h += '<div class="pw">' + posterHTML(rec.p, '', true) + '</div>';
   h += '<div class="di">';
@@ -1253,6 +1277,12 @@ function hideAll() {
   document.getElementById('noRes').classList.remove('show');
   document.getElementById('tg').style.display = 'none';
   hideSugg();
+}
+function goHome() {
+  CUR_VIEW = null;
+  hideAll();
+  showTrending();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function goBack() {
   CUR_VIEW = null;
