@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineScore — Movie & Series Analyzer</title>
+<meta name="description" content="Compare IMDb, Rotten Tomatoes, Metacritic & TMDB scores for movies and series. Fuzzy search, live data, one single file.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08080f;--bg2:#10101a;--card:#13131e;--card2:#1a1a28;
+  --border:#252538;--text:#e8e8f0;--text2:#8888a0;--text3:#55556a;
+  --accent:#e50914;--accent2:#ff3d47;
+  --imdb:#f5c518;--rt:#fa320a;--meta:#ffcc33;--tmdb:#01d277;
+  --good:#2ecc71;--ok:#f1c40f;--bad:#e74c3c;
+  --blue:#4a9eff;--purple:#a855f7;--cyan:#00d4aa;
+  --gradient:linear-gradient(135deg,#e50914,#ff6b35);
+  --glass:rgba(255,255,255,.04);
+  --font:'Inter',system-ui,sans-serif;
+  --radius:14px;--radius2:10px;
+}
+[data-theme="light"]{--bg:#f0f0f5;--bg2:#fff;--card:#fff;--card2:#f5f5fa;--border:#dddde5;--text:#111118;--text2:#666680;--text3:#999;--glass:rgba(0,0,0,.03)}
+html[lang="fa"] body{font-family:'Vazirmatn','Inter',system-ui,sans-serif}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::selection{background:var(--accent);color:#fff}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+a{color:var(--blue)}
+button{font-family:inherit}
+
+/* ---------- nav ---------- */
+nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;padding:10px 18px;background:rgba(8,8,15,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+[data-theme="light"] nav{background:rgba(255,255,255,.92)}
+.logo{font-size:1.1rem;font-weight:900;color:var(--text);white-space:nowrap}
+.logo b{color:var(--accent)}
+.nr{margin-inline-start:auto;display:flex;align-items:center;gap:8px}
+.nb{background:var(--glass);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:700;cursor:pointer;transition:.2s}
+.nb:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ---------- hero ---------- */
+.hero{position:relative;min-height:250px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:linear-gradient(135deg,#08080f 0%,#1a0a1a 50%,#08080f 100%)}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(229,9,20,.12),transparent 70%)}
+.hero-c{position:relative;z-index:2;text-align:center;padding:36px 20px 24px;max-width:720px;width:100%}
+.hero h1{font-size:clamp(2rem,5vw,3rem);font-weight:900;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+.hero p{color:var(--text2);font-size:.9rem;margin-bottom:22px}
+.sw{max-width:580px;margin:0 auto;position:relative}
+.sb{display:flex;align-items:center;background:var(--card2);border:2px solid var(--border);border-radius:16px;overflow:hidden;transition:.3s;box-shadow:0 4px 30px rgba(0,0,0,.3)}
+.sb:focus-within{border-color:var(--accent);box-shadow:0 4px 30px rgba(229,9,20,.12)}
+.sb input{flex:1;background:none;border:none;color:var(--text);padding:14px 18px;font:inherit;font-size:.95rem;outline:none;min-width:0}
+.sb input::placeholder{color:var(--text3)}
+.sb button{background:var(--gradient);border:none;color:#fff;padding:14px 22px;font-size:1rem;cursor:pointer;font-weight:700}
+.sugg{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;z-index:60;box-shadow:0 12px 40px rgba(0,0,0,.45);max-height:380px;overflow-y:auto}
+.sugg-item{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;transition:.15s}
+.sugg-item:hover,.sugg-item.act{background:rgba(229,9,20,.1)}
+.sugg-item img,.sugg-ph{width:34px;height:50px;border-radius:5px;object-fit:cover;flex-shrink:0;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.sugg-i{flex:1;min-width:0}
+.sugg-t{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sugg-m{font-size:.65rem;color:var(--text2)}
+.sugg-r{margin-inline-start:auto;font-size:.7rem;color:var(--imdb);font-weight:700;white-space:nowrap}
+.tf{display:flex;gap:8px;justify-content:center;margin-top:14px}
+.tb{padding:6px 18px;border:1px solid var(--border);background:var(--glass);color:var(--text2);font:inherit;font-size:.75rem;font-weight:600;border-radius:16px;cursor:pointer;transition:.2s}
+.tb:hover,.tb.active{background:rgba(229,9,20,.12);color:var(--accent);border-color:var(--accent)}
+
+/* ---------- main / sections ---------- */
+.main{max-width:1200px;margin:0 auto;padding:16px 16px 60px}
+.section-title{font-size:1rem;font-weight:800;margin:20px 0 12px;display:flex;align-items:center;gap:8px}
+.section-title .st-sub{font-size:.7rem;color:var(--text3);font-weight:600}
+.rv{display:none}.rv.show{display:block}
+.ri-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.ri-cnt{font-size:.8rem;color:var(--text2)}.ri-cnt strong{color:var(--accent)}
+.rg{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:12px}
+.rc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;cursor:pointer;transition:.3s;display:flex;gap:12px;padding:12px;position:relative}
+.rc:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,.3);border-color:var(--accent)}
+.rc-p{width:64px;height:96px;border-radius:8px;background:var(--card2);flex-shrink:0;overflow:hidden}
+.rc-p img{width:100%;height:100%;object-fit:cover}
+.rc-p .ni{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:var(--card2);color:var(--text3)}
+.rc-i{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rc-t{font-size:.8rem;font-weight:700;line-height:1.3}
+.rc-y{font-size:.68rem;color:var(--text2)}
+.rc-b{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:2px}
+.cb{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.58rem;font-weight:700}
+.cb-tp{background:rgba(74,158,255,.12);color:var(--blue)}
+.cb-r{background:rgba(245,197,24,.15);color:var(--imdb)}
+.cb-src{background:var(--glass);color:var(--text3);font-weight:600}
+.rc-actions{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
+.mini-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:5px;font-size:.6rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--glass);color:var(--text2);text-decoration:none;transition:.15s}
+.mini-btn:hover{color:var(--accent);border-color:var(--accent)}
+.mini-btn.gold{background:var(--imdb);border-color:var(--imdb);color:#000}
+.mini-btn.gold:hover{filter:brightness(1.12)}
+
+/* ---------- trending ---------- */
+.tg{display:none}
+.tg-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:12px}
+.tc{display:flex;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:10px;cursor:pointer;transition:.25s}
+.tc:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tc-p{width:52px;height:78px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--card2)}
+.tc-p img{width:100%;height:100%;object-fit:cover}
+.tc-p .ni{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;background:var(--card2);color:var(--text3)}
+.tc-i{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tc-t{font-size:.75rem;font-weight:700;line-height:1.25}
+.tc-y{font-size:.64rem;color:var(--text2)}
+.tc-r{font-size:.7rem;color:var(--imdb);font-weight:700}
+.tc-tp{font-size:.55rem;color:var(--blue);font-weight:700}
+
+/* ---------- detail ---------- */
+.dv{display:none}.dv.show{display:block;animation:fu .35s ease}
+@keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.bb{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--glass);border:1px solid var(--border);border-radius:8px;color:var(--text2);font:inherit;font-size:.75rem;font-weight:600;cursor:pointer;transition:.2s;margin-bottom:16px}
+.bb:hover{border-color:var(--accent);color:var(--accent)}
+.dh{display:grid;grid-template-columns:220px 1fr;gap:24px;margin-bottom:22px}
+@media(max-width:700px){.dh{grid-template-columns:1fr;text-align:center}.dh .dbx{justify-content:center}}
+.pw{border-radius:var(--radius);overflow:hidden;background:var(--card2);box-shadow:0 8px 40px rgba(0,0,0,.4);align-self:start}
+.pw img{width:100%;display:block}
+.pw .ni{width:100%;aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;font-size:3.5rem;color:var(--text3)}
+.di{display:flex;flex-direction:column;gap:12px}
+.dt{font-size:clamp(1.3rem,3vw,1.9rem);font-weight:900;line-height:1.2}
+.dmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.dmchip{padding:3px 10px;background:var(--glass);border:1px solid var(--border);border-radius:14px;font-size:.68rem;color:var(--text2);font-weight:600}
+.dmchip.tp{background:rgba(74,158,255,.12);color:var(--blue);border-color:transparent}
+.dmchip.r{background:rgba(245,197,24,.15);color:var(--imdb);border-color:transparent}
+.desc{font-size:.8rem;color:var(--text2);line-height:1.6;margin-top:2px}
+
+/* rating cards */
+.rp{display:none}
+.rtc-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.rtc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.rtc-src{font-size:.62rem;font-weight:800;letter-spacing:.5px;color:var(--text2)}
+.rtc.imdb .rtc-src{color:var(--imdb)}.rtc.rt .rtc-src{color:var(--rt)}.rtc.meta .rtc-src{color:var(--meta)}.rtc.tmdb .rtc-src{color:var(--tmdb)}
+.rtc-val{font-size:1.5rem;font-weight:900;line-height:1}
+.rtc-max{font-size:.62rem;color:var(--text3)}
+.rtc-bar{height:5px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-top:4px}
+.rtc-fill{height:100%;width:0;border-radius:4px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.rtc.imdb .rtc-fill{background:var(--imdb)}.rtc.rt .rtc-fill{background:var(--rt)}.rtc.meta .rtc-fill{background:var(--meta)}.rtc.tmdb .rtc-fill{background:var(--tmdb)}
+
+/* verdict */
+.vb{display:none;background:linear-gradient(135deg,rgba(229,9,20,.14),rgba(255,107,53,.06));border:1px solid rgba(229,9,20,.35);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px}
+.vb .vlbl{font-size:1.15rem;font-weight:900;color:var(--accent)}
+.vb .vstars{color:var(--imdb);letter-spacing:2px;font-size:.9rem}
+.vb .vdesc{font-size:.75rem;color:var(--text2);margin-top:3px}
+.vb .vsco{font-size:.8rem;color:var(--text3);font-weight:700;margin-top:4px}
+
+/* deep links */
+.dl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.lnk{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:.72rem;font-weight:700;color:#fff;text-decoration:none;transition:.2s;border:none;cursor:pointer}
+.lnk:hover{transform:translateY(-1px);filter:brightness(1.15)}
+.lnk.imdb{background:#f5c518;color:#000}
+.lnk.lb{background:#00b540;color:#fff}
+.lnk.tmdb{background:#01d277;color:#052d1e}
+.lnk.rt{background:#fa320a}
+.lnk.wiki{background:#6c6c6c}
+.lnk.share{background:linear-gradient(135deg,#a855f7,#4a9eff);color:#fff}
+.lnk:disabled{opacity:.4;cursor:not-allowed}
+
+/* info grid */
+.sec{margin-bottom:18px}
+.sec h3{font-size:.8rem;font-weight:800;color:var(--text2);letter-spacing:.4px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.ig{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px 18px}
+.ir{display:flex;flex-direction:column;gap:2px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px}
+.il{font-size:.6rem;font-weight:800;letter-spacing:.4px;color:var(--text3);text-transform:uppercase}
+.iv{font-size:.76rem;color:var(--text);line-height:1.45}
+.plot{font-size:.85rem;color:var(--text2);line-height:1.75;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+
+/* wiki / interesting */
+.wikibox{display:flex;gap:14px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;align-items:flex-start}
+.wikibox img{width:110px;height:auto;border-radius:8px;flex-shrink:0}
+.wiki-txt{flex:1;min-width:0;font-size:.8rem;color:var(--text2);line-height:1.7}
+.wiki-txt .wimg-src{display:block;font-size:.6rem;color:var(--text3);margin-bottom:6px}
+.kw{display:flex;gap:6px;flex-wrap:wrap}
+.kw span{padding:3px 10px;background:var(--glass);border:1px solid var(--border);border-radius:14px;font-size:.66rem;color:var(--text2)}
+.trailer{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;border:1px solid var(--border)}
+.trailer iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+/* episodes */
+.ep-sel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.eps-b{padding:5px 14px;border:1px solid var(--border);background:var(--glass);color:var(--text2);font:inherit;font-size:.68rem;font-weight:700;border-radius:14px;cursor:pointer;transition:.15s}
+.eps-b:hover,.eps-b.act{background:rgba(229,9,20,.12);color:var(--accent);border-color:var(--accent)}
+.ep-season-title{font-size:.72rem;font-weight:800;color:var(--text2);margin:10px 0 6px;display:flex;align-items:center;gap:8px}
+.ep-avg{padding:1px 8px;border-radius:8px;font-size:.62rem;color:#fff;font-weight:800}
+.ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:5px}
+.ep-box{border-radius:6px;padding:6px 4px;text-align:center;font-size:.6rem;font-weight:700;color:#fff;display:flex;flex-direction:column;gap:2px}
+.ep-num{font-size:.52rem;opacity:.75;font-weight:600}
+
+/* download popup (modal) */
+.modal-ov{position:fixed;inset:0;z-index:20000;background:rgba(8,8,15,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-ov[hidden]{display:none}
+.modal{width:min(680px,94vw);max-height:86vh;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);animation:fu .25s ease}
+.modal-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--card2);flex-shrink:0}
+.modal-t{font-size:.92rem;font-weight:900;flex:1;min-width:0}
+.modal-x{background:var(--glass);border:1px solid var(--border);color:var(--text2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:.85rem;flex-shrink:0}
+.modal-x:hover{color:var(--accent);border-color:var(--accent)}
+.modal-b{padding:16px 18px;overflow-y:auto}
+.dl-sec{margin-bottom:14px}
+.dl-sec-t{font-size:.72rem;font-weight:800;color:var(--text2);margin-bottom:8px}
+.dl-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--card2);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;transition:.15s;flex-wrap:wrap}
+.dl-item:hover{border-color:var(--accent)}
+.dl-item .q{font-size:.7rem;font-weight:800;color:var(--blue);min-width:0;flex:1}
+.dl-item .sz{font-size:.64rem;color:var(--text3);white-space:nowrap}
+.dl-item a{display:inline-flex;align-items:center;gap:4px;padding:5px 13px;border-radius:7px;background:linear-gradient(135deg,#00b540,#01d277);color:#fff;font-size:.66rem;font-weight:800;text-decoration:none;white-space:nowrap}
+.dl-item a:hover{filter:brightness(1.12)}
+.dl-copy{background:var(--glass);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:5px 9px;font-size:.64rem;cursor:pointer;font-weight:700}
+.dl-copy:hover{color:var(--accent);border-color:var(--accent)}
+.dl-empty{font-size:.78rem;color:var(--text3);padding:24px;text-align:center}
+.dl-load{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px;color:var(--text2);font-size:.78rem}
+.lnk.dl{background:linear-gradient(135deg,#00b540,#01d277);color:#fff}
+
+/* compare */
+.cmp-banner{display:none;background:linear-gradient(135deg,rgba(168,85,247,.15),rgba(74,158,255,.1));border:1px solid rgba(168,85,247,.4);border-radius:12px;padding:10px 16px;margin-bottom:16px;align-items:center;gap:12px;flex-wrap:wrap}
+.cmp-banner.show{display:flex}
+.cmp-banner .t{flex:1;font-size:.78rem;color:var(--text2)}
+.cmp-banner .t b{color:var(--purple)}
+.cmp-g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.cmp-g{grid-template-columns:1fr}}
+.cmp-col{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.cmp-col .ct{font-size:1rem;font-weight:900;margin-bottom:12px}
+.cmp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.7rem}
+.cmp-row .lbl{min-width:74px;color:var(--text2);font-weight:700}
+.cmp-row .bar{flex:1;height:14px;background:var(--bg2);border-radius:7px;overflow:hidden}
+.cmp-row .fill{height:100%;border-radius:7px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.cmp-row .val{min-width:52px;text-align:end;font-weight:800}
+.vs-badge{display:flex;justify-content:center;font-size:1.4rem;font-weight:900;color:var(--text3);padding:8px 0}
+@media(max-width:700px){.vs-badge{padding:2px 0}}
+
+/* misc */
+.loader{display:none;text-align:center;padding:50px 20px}.loader.show{display:block}
+.sp{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader p{color:var(--text2);font-size:.82rem}
+.no-res{text-align:center;padding:50px 20px;color:var(--text2);display:none}.no-res.show{display:block}
+.no-res .ic{font-size:2.5rem;margin-bottom:10px;opacity:.5}
+.no-res small{color:var(--text3)}
+.tc{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.tt{padding:7px 16px;border-radius:8px;color:#fff;font-size:.75rem;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.4);animation:si .3s}
+.tt-s{background:var(--good)}.tt-e{background:var(--bad)}.tt-i{background:var(--blue)}
+@keyframes si{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.prog-ov{position:fixed;inset:0;z-index:10000;background:rgba(8,8,15,.85);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.prog-box{width:min(420px,86vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center}
+.prog-box .pb-t{font-size:.9rem;font-weight:800;margin-bottom:4px}
+.prog-box .pb-s{font-size:.72rem;color:var(--text2);margin-bottom:16px}
+.pb-bar{height:8px;background:var(--bg2);border-radius:5px;overflow:hidden}
+.pb-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--gold,#f5c518));border-radius:5px;transition:width .15s}
+.pb-pct{font-size:.7rem;color:var(--text3);margin-top:8px;font-weight:700}
+footer{text-align:center;padding:26px 16px;color:var(--text3);font-size:.72rem;border-top:1px solid var(--border)}
+footer a{color:var(--text2);text-decoration:none}
+footer a:hover{color:var(--accent)}
+.theme-btn{position:fixed;bottom:16px;inset-inline-end:16px;width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:1rem;cursor:pointer;transition:.3s;z-index:100;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.theme-btn:hover{border-color:var(--accent);transform:scale(1.1)}
+[dir="rtl"] .rc-actions,[dir="rtl"] .dl{justify-content:flex-start}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">🎬 <b>Cine</b>Score</span>
+  <span class="nr">
+    <button class="nb" id="langBtn" title="Language / زبان"></button>
+    <button class="nb" id="themeBtn">🌙</button>
+  </span>
+</nav>
+
+<section class="hero">
+  <div class="hero-c">
+    <h1>🎬 <span data-i18n="appName">CineScore</span></h1>
+    <p data-i18n="tagline">Compare IMDb, Rotten Tomatoes, Metacritic &amp; TMDB scores — all in one place.</p>
+    <div class="sw">
+      <div class="sb">
+        <input id="si" autocomplete="off" spellcheck="false" data-i18n-ph="searchPh">
+        <button id="sBtn">🔍</button>
+      </div>
+      <div class="sugg" id="sugg" hidden></div>
+    </div>
+    <div class="tf" id="tf">
+      <button class="tb active" data-tp="" data-i18n="all">All</button>
+      <button class="tb" data-tp="m" data-i18n="movies">Movies</button>
+      <button class="tb" data-tp="s" data-i18n="series">Series</button>
+    </div>
+  </div>
+</section>
+
+<main class="main">
+  <div class="cmp-banner" id="cmpBanner">
+    <span class="t" id="cmpInfo"></span>
+    <button class="lnk share" id="cmpGo" style="display:none" data-i18n="compareNow">Compare</button>
+    <button class="lnk wiki" id="cmpCancel" data-i18n="cancelCompare">Cancel</button>
+  </div>
+
+  <div class="tg" id="tg">
+    <div class="section-title"><span data-i18n="trending">Trending</span><span class="st-sub" id="tgSub"></span></div>
+    <div class="tg-g" id="tgg"></div>
+  </div>
+
+  <div class="rv" id="rv">
+    <div class="ri-bar">
+      <span class="ri-cnt" id="rcnt"></span>
+    </div>
+    <div class="rg" id="rg"></div>
+  </div>
+
+  <div class="dv" id="dv"></div>
+
+  <div class="no-res" id="noRes">
+    <div class="ic">🎬</div>
+    <p data-i18n="noResults">No matches found.</p>
+    <small data-i18n="noResultsD">Try a different spelling or a partial title — typos are OK!</small>
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="sp"></div>
+    <p id="loaderText">Loading…</p>
+  </div>
+</main>
+
+<div class="modal-ov" id="dlModal" hidden>
+  <div class="modal">
+    <div class="modal-h"><span class="modal-t" id="dlTitle"></span><button class="modal-x" id="dlClose">✕</button></div>
+    <div class="modal-b" id="dlBody"></div>
+  </div>
+</div>
+
+<div class="tc" id="tc"></div>
+
+<footer>
+  <p><span data-i18n="madeBy">Built with ❤ by</span> <a href="https://github.com/mohsen-niksirat" target="_blank" rel="noopener">Mohsen Niksirat</a> &nbsp;|&nbsp; <span data-i18n="dataFrom">Data:</span> IMDb · Rotten Tomatoes · Metacritic · TMDB · Wikipedia</p>
+</footer>
+
+<button class="theme-btn" id="themeBtnF">🌙</button>
+
+<script>
+'use strict';
+/* ================================================================
+   CineScore v2 — live multi-source analyzer (single file)
+   Sources: OMDb + TMDB + Wikipedia (live fallback)
+            public/titles.json + public/db.json (crawled dataset)
+   ================================================================ */
+
+/* ---------- CONFIG (fill in your keys) ---------- */
+var OMDB_KEY = 'a6a22901';
+var TMDB_KEY = '3ecc5636799c19193a8d5be489096f30';
+
+/* ================================================================
+   i18n
+   ================================================================ */
+var I18N = {
+  en: {
+    appName: 'CineScore', tagline: 'Compare IMDb, Rotten Tomatoes, Metacritic & TMDB scores — all in one place.',
+    searchPh: 'Search movies & series… typos are OK!',
+    trending: 'Trending', all: 'All', movies: 'Movies', series: 'Series',
+    results: 'results for', noResults: 'No matches found.',
+    noResultsD: 'Try a different spelling or a partial title — typos are OK!',
+    dbLoading: 'Loading database…', dbOnce: 'First time only — cached afterwards.',
+    loading: 'Loading…',
+    director: 'Director', writer: 'Writer', actors: 'Actors', plot: 'Plot',
+    awards: 'Awards', boxOffice: 'Box Office', language: 'Language', country: 'Country',
+    production: 'Production', runtime: 'Runtime', votes: 'IMDb votes', genres: 'Genres',
+    type: 'Type', movie: 'Movie', series: 'Series', seasons: 'Seasons',
+    year: 'Year', min: 'min',
+    verdict: 'Overall Verdict',
+    v_masterpiece: 'Masterpiece', v_excellent: 'Excellent', v_veryGood: 'Very Good', v_good: 'Good', v_mixed: 'Mixed', v_belowAvg: 'Below Average',
+    d_masterpiece: 'A universally acclaimed masterpiece', d_excellent: 'Highly praised by critics and audiences',
+    d_veryGood: 'Strong reviews across the board', d_good: 'Generally favorable reviews',
+    d_mixed: 'Divided opinions', d_belowAvg: 'Mostly negative reviews',
+    openImdb: 'IMDb', openLb: 'Letterboxd', openTmdb: 'TMDB', openRt: 'Rotten Tomatoes', openWiki: 'Wikipedia',
+    share: 'Share', copied: 'Link copied to clipboard!',
+    download: 'Download', downloadLinks: 'Download links', noLinks: 'No download links available for this title.',
+    loadingLinks: 'Loading download links…', close: 'Close', softSub: 'SoftSub', dubbed: 'Dubbed', season: 'Season',
+    compare: 'Compare', analyze: 'Analyze', selectSecond: 'Select a second title to compare', compareNow: 'Compare now',
+    cancelCompare: 'Cancel', vs: 'vs',
+    epRatings: 'Episode ratings', loadEp: 'Load episode ratings', noEp: 'No episode data available.',
+    interesting: 'Did you know', wikiMore: 'More on Wikipedia', keywords: 'Keywords', trailer: 'Trailer',
+    back: '← Back to results', notFound: 'Title not found.',
+    liveErr: 'Could not load live data (offline or quota). Showing available info.',
+    madeBy: 'Built with ❤ by', dataFrom: 'Data:',
+    langName: 'فارسی'
+  },
+  fa: {
+    appName: 'سینما اسکور', tagline: 'مقایسه امتیازهای IMDb، Rotten Tomatoes، Metacritic و TMDB — همه در یک جا.',
+    searchPh: 'جستجوی فیلم و سریال… غلط تایپی هم اوکیه!',
+    trending: 'محبوب‌ترین‌ها', all: 'همه', movies: 'فیلم‌ها', series: 'سریال‌ها',
+    results: 'نتیجه برای', noResults: 'چیزی پیدا نشد!',
+    noResultsD: 'املای متفاوت یا بخشی از عنوان رو امتحان کنید — غلط تایپی مشکلی نداره!',
+    dbLoading: 'در حال بارگذاری دیتابیس…', dbOnce: 'فقط بار اول — بعدش کش می‌شه.',
+    loading: 'در حال بارگذاری…',
+    director: 'کارگردان', writer: 'نویسنده', actors: 'بازیگران', plot: 'خلاصه داستان',
+    awards: 'جوایز', boxOffice: 'گیشه', language: 'زبان', country: 'کشور',
+    production: 'تولید', runtime: 'مدت زمان', votes: 'رأی IMDb', genres: 'ژانر',
+    type: 'نوع', movie: 'فیلم', series: 'سریال', seasons: 'فصل‌ها',
+    year: 'سال', min: 'دقیقه',
+    verdict: 'حکم کلی',
+    v_masterpiece: 'شاهکار', v_excellent: 'عالی', v_veryGood: 'خیلی خوب', v_good: 'خوب', v_mixed: 'نظرات متفاوت', v_belowAvg: 'زیر میانگین',
+    d_masterpiece: 'شاهکاری که همه آن را ستایش می‌کنند', d_excellent: 'تحسین منتقدان و مخاطبان',
+    d_veryGood: 'نقدهای قوی در همه منابع', d_good: 'نظرات عموماً مثبت',
+    d_mixed: 'نظرات متفاوت', d_belowAvg: 'نظرات عمدتاً منفی',
+    openImdb: 'IMDb', openLb: 'Letterboxd', openTmdb: 'TMDB', openRt: 'Rotten Tomatoes', openWiki: 'ویکی‌پدیا',
+    share: 'اشتراک‌گذاری', copied: 'لینک کپی شد!',
+    download: 'دانلود', downloadLinks: 'لینک‌های دانلود', noLinks: 'لینک دانلود برای این عنوان موجود نیست.',
+    loadingLinks: 'در حال بارگذاری لینک‌های دانلود…', close: 'بستن', softSub: 'زیرنویس', dubbed: 'دوبله', season: 'فصل',
+    compare: 'مقایسه', analyze: 'تحلیل', selectSecond: 'عنوان دوم را برای مقایسه انتخاب کنید', compareNow: 'مقایسه کن',
+    cancelCompare: 'انصراف', vs: 'در برابر',
+    epRatings: 'امتیاز اپیزودها', loadEp: 'بارگذاری امتیاز اپیزودها', noEp: 'داده‌ای برای اپیزودها موجود نیست.',
+    interesting: 'آیا می‌دانستید؟', wikiMore: 'بیشتر در ویکی‌پدیا', keywords: 'کلمات کلیدی', trailer: 'تریلر',
+    back: '← بازگشت به نتایج', notFound: 'عنوان پیدا نشد.',
+    liveErr: 'امکان دریافت داده زنده نیست (آفلاین یا محدودیت). اطلاعات موجود نمایش داده می‌شود.',
+    madeBy: 'ساخته شده با ❤ توسط', dataFrom: 'داده‌ها:',
+    langName: 'English'
+  }
+};
+var LANG = 'en';
+function t(k) { return (I18N[LANG] && I18N[LANG][k]) || I18N.en[k] || k; }
+
+/* ================================================================
+   storage helpers (localStorage + IndexedDB)
+   ================================================================ */
+var LS = {
+  get: function (k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+function idbOpen() {
+  return new Promise(function (res, rej) {
+    var r = indexedDB.open('cinescore', 1);
+    r.onupgradeneeded = function () { var d = r.result; if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); };
+    r.onsuccess = function () { res(r.result); };
+    r.onerror = function () { rej(r.error); };
+  });
+}
+function idbGet(k) {
+  return idbOpen().then(function (d) {
+    return new Promise(function (res, rej) {
+      var tx = d.transaction('kv').objectStore('kv').get(k);
+      tx.onsuccess = function () { res(tx.result); };
+      tx.onerror = function () { rej(tx.error); };
+    });
+  }).catch(function () { return null; });
+}
+function idbPut(k, v) {
+  return idbOpen().then(function (d) {
+    return new Promise(function (res, rej) {
+      var tx = d.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+      tx.onsuccess = function () { res(); };
+      tx.onerror = function () { rej(tx.error); };
+    });
+  }).catch(function () {});
+}
+
+/* ================================================================
+   state
+   ================================================================ */
+var TITLES = [];          // search index [{i,t,y,tp,r,v,p}]
+var DB = null;            // full dataset {updated, items:[records]}
+var REC_CACHE = {};       // resolved records by id
+var CURRENT = [];         // current result list
+var CUR_TP = '';          // type filter
+var CUR_VIEW = null;      // {kind:'trending'|'results'|'detail'|'compare', ...}
+var COMPARE_TARGET = null, COMPARE_MODE = false;
+var SUGG = [], SUGG_ACT = -1;
+
+/* ================================================================
+   fallback dataset (embedded, offline). Injected at build time.
+   ================================================================ */
+var FALLBACK = [{"i":"tt1375666","t":"Inception","y":2010,"tp":"m","r":8.8,"p":"https://image.tmdb.org/t/p/w500/ljsZTbVsrQSqZgWeep2B1QiDKuh.jpg","g":"","dir":"Christopher Nolan","wr":"Christopher Nolan","ac":["Leonardo DiCaprio","Joseph Gordon-Levitt","Elliot Page","Tom Hardy","Ken Watanabe"],"pl":"A thief who steals corporate secrets through dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O., but his tragic past may doom the project and his team to disaster.","aw":"Won 4 Oscars. 157 wins & 219 nominations total.","bo":"$292.6M","lo":"English, Japanese, French","co":"USA, UK","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":87,"mc":74},{"i":"tt0468569","t":"The Dark Knight","y":2008,"tp":"m","r":9,"p":"https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911BTUgMe1nNaD.jpg","g":"","dir":"Christopher Nolan","wr":"Jonathan Nolan, Christopher Nolan","ac":["Christian Bale","Heath Ledger","Aaron Eckhart","Michael Caine","Gary Oldman"],"pl":"When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.","aw":"Won 2 Oscars. 159 wins & 163 nominations total.","bo":"$534.9M","lo":"English, Mandarin","co":"USA, UK","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":94,"mc":84},{"i":"tt0111161","t":"The Shawshank Redemption","y":1994,"tp":"m","r":9.3,"p":"https://image.tmdb.org/t/p/w500/9cjIGRQL1JruKhBMFBPEEkNUOVP.jpg","g":"","dir":"Frank Darabont","wr":"Stephen King, Frank Darabont","ac":["Tim Robbins","Morgan Freeman","Bob Gunton"],"pl":"Over the course of several years, two convicts form a friendship, seeking consolation and eventually redemption through basic compassion.","aw":"Nominated for 7 Oscars. 21 wins & 43 nominations total.","bo":"$58.5M","lo":"English","co":"USA","pr":"Columbia Pictures","rm":0,"se":0,"ep":null,"rt":91,"mc":82},{"i":"tt0109830","t":"Forrest Gump","y":1994,"tp":"m","r":8.8,"p":"https://image.tmdb.org/t/p/w500/arw2vcBveWOVZr6pxd9XTd1TdQa.jpg","g":"","dir":"Robert Zemeckis","wr":"Winston Groom, Eric Roth","ac":["Tom Hanks","Robin Wright","Gary Sinise"],"pl":"The history of the United States from the 1950s to the 70s unfolds from the perspective of an Alabama man with an IQ of 75.","aw":"Won 6 Oscars. 44 wins & 75 nominations total.","bo":"$678.2M","lo":"English","co":"USA","pr":"Paramount","rm":0,"se":0,"ep":null,"rt":71,"mc":82},{"i":"tt0137523","t":"Fight Club","y":1999,"tp":"m","r":8.8,"p":"https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg","g":"","dir":"David Fincher","wr":"Chuck Palahniuk, Jim Uhls","ac":["Brad Pitt","Edward Norton","Meat Loaf"],"pl":"An insomniac office worker and a devil-may-care soap maker form an underground fight club that evolves into much more.","aw":"Nominated for 1 Oscar. 11 wins & 38 nominations total.","bo":"$101.2M","lo":"English","co":"USA, Germany","pr":"Fox 2000","rm":0,"se":0,"ep":null,"rt":79,"mc":66},{"i":"tt0110912","t":"Pulp Fiction","y":1994,"tp":"m","r":8.9,"p":"https://image.tmdb.org/t/p/w500/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg","g":"","dir":"Quentin Tarantino","wr":"Quentin Tarantino, Roger Avary","ac":["John Travolta","Uma Thurman","Samuel L. Jackson","Bruce Willis"],"pl":"The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.","aw":"Won 1 Oscar. 70 wins & 75 nominations total.","bo":"$213.9M","lo":"English, French, Spanish","co":"USA","pr":"Miramax","rm":0,"se":0,"ep":null,"rt":92,"mc":94},{"i":"tt0944947","t":"Game of Thrones","y":2011,"tp":"s","r":9.2,"p":"https://image.tmdb.org/t/p/w500/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg","g":"","dir":"","wr":"David Benioff, D.B. Weiss","ac":["Emilia Clarke","Peter Dinklage","Kit Harington","Lena Headey"],"pl":"Nine noble families fight for control over the lands of Westeros, while an ancient enemy returns after being dormant for millennia.","aw":"Won 59 Primetime Emmys. 390 wins & 654 nominations total.","bo":"","lo":"English","co":"USA, UK","pr":"HBO","rm":0,"se":8,"ep":{"S1":[{"e":1,"r":9.1},{"e":2,"r":8.8},{"e":3,"r":8.6},{"e":4,"r":8.8},{"e":5,"r":9},{"e":6,"r":9.1},{"e":7,"r":8.7},{"e":8,"r":8.9},{"e":9,"r":9.7},{"e":10,"r":9.5}],"S2":[{"e":1,"r":8.8},{"e":2,"r":8.5},{"e":3,"r":8.6},{"e":4,"r":8.8},{"e":5,"r":8.7},{"e":6,"r":9.1},{"e":7,"r":8.7},{"e":8,"r":8.9},{"e":9,"r":9},{"e":10,"r":9.5}],"S3":[{"e":1,"r":8.8},{"e":2,"r":8.6},{"e":3,"r":8.7},{"e":4,"r":8.8},{"e":5,"r":8.9},{"e":6,"r":9.1},{"e":7,"r":8.6},{"e":8,"r":8.8},{"e":9,"r":9.7},{"e":10,"r":9.2}],"S4":[{"e":1,"r":9.1},{"e":2,"r":8.8},{"e":3,"r":8.9},{"e":4,"r":9},{"e":5,"r":8.9},{"e":6,"r":9.2},{"e":7,"r":9},{"e":8,"r":9},{"e":9,"r":9.9},{"e":10,"r":9.7}],"S5":[{"e":1,"r":8.7},{"e":2,"r":8.5},{"e":3,"r":8.4},{"e":4,"r":8.6},{"e":5,"r":8.5},{"e":6,"r":8.7},{"e":7,"r":8.3},{"e":8,"r":9},{"e":9,"r":8.6},{"e":10,"r":9.1}],"S6":[{"e":1,"r":8.6},{"e":2,"r":8.7},{"e":3,"r":8.5},{"e":4,"r":8.8},{"e":5,"r":8.7},{"e":6,"r":9.1},{"e":7,"r":8.7},{"e":8,"r":8.9},{"e":9,"r":9.9},{"e":10,"r":9.5}],"S7":[{"e":1,"r":8.6},{"e":2,"r":8.5},{"e":3,"r":8.7},{"e":4,"r":9},{"e":5,"r":8.5},{"e":6,"r":9.2},{"e":7,"r":8.4}],"S8":[{"e":1,"r":7.6},{"e":2,"r":7.8},{"e":3,"r":7.9},{"e":4,"r":5.8},{"e":5,"r":6},{"e":6,"r":4.1}]},"rt":89},{"i":"tt0903747","t":"Breaking Bad","y":2008,"tp":"s","r":9.5,"p":"https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg","g":"","dir":"","wr":"Vince Gilligan","ac":["Bryan Cranston","Aaron Paul","Anna Gunn","Dean Norris"],"pl":"A chemistry teacher diagnosed with inoperable lung cancer turns to manufacturing methamphetamine with a former student.","aw":"Won 16 Primetime Emmys. 145 wins & 241 nominations total.","bo":"","lo":"English, Spanish","co":"USA","pr":"AMC","rm":0,"se":5,"ep":{"S1":[{"e":1,"r":9},{"e":2,"r":8.7},{"e":3,"r":8.5},{"e":4,"r":8.6},{"e":5,"r":8.4},{"e":6,"r":8.9},{"e":7,"r":9.1}],"S2":[{"e":1,"r":8.7},{"e":2,"r":8.5},{"e":3,"r":8.6},{"e":4,"r":8.8},{"e":5,"r":8.5},{"e":6,"r":8.7},{"e":7,"r":8.6},{"e":8,"r":8.9},{"e":9,"r":8.7},{"e":10,"r":8.7},{"e":11,"r":9},{"e":12,"r":8.7},{"e":13,"r":9.3}],"S3":[{"e":1,"r":8.6},{"e":2,"r":8.5},{"e":3,"r":8.6},{"e":4,"r":8.4},{"e":5,"r":8.6},{"e":6,"r":8.9},{"e":7,"r":8.5},{"e":8,"r":8.7},{"e":9,"r":8.8},{"e":10,"r":9},{"e":11,"r":8.9},{"e":12,"r":9.3},{"e":13,"r":9.6}],"S4":[{"e":1,"r":9},{"e":2,"r":8.7},{"e":3,"r":8.8},{"e":4,"r":8.6},{"e":5,"r":8.9},{"e":6,"r":8.7},{"e":7,"r":8.8},{"e":8,"r":9},{"e":9,"r":8.9},{"e":10,"r":9.1},{"e":11,"r":9.2},{"e":12,"r":9.5},{"e":13,"r":9.8}],"S5":[{"e":1,"r":9.2},{"e":2,"r":8.9},{"e":3,"r":9.1},{"e":4,"r":9},{"e":5,"r":8.8},{"e":6,"r":9.4},{"e":7,"r":8.9},{"e":8,"r":9.5},{"e":9,"r":9.6},{"e":10,"r":9.5},{"e":11,"r":9.6},{"e":12,"r":9.8},{"e":13,"r":9.9},{"e":14,"r":9.5},{"e":15,"r":9.5},{"e":16,"r":9.9}]},"rt":96},{"i":"tt4574334","t":"Stranger Things","y":2016,"tp":"s","r":8.7,"p":"https://image.tmdb.org/t/p/w500/uOOtwVbSr4QDjAGIifLDwpb2Pdl.jpg","g":"","dir":"","wr":"Matt Duffer, Ross Duffer","ac":["Millie Bobby Brown","Finn Wolfhard","Winona Ryder","David Harbour"],"pl":"When a young boy disappears, his mother, a police chief and his friends must confront terrifying supernatural forces.","aw":"Won 12 Primetime Emmys. 105 wins & 233 nominations total.","bo":"","lo":"English","co":"USA","pr":"Netflix","rm":0,"se":4,"ep":{"S1":[{"e":1,"r":8.5},{"e":2,"r":8.4},{"e":3,"r":8.5},{"e":4,"r":8.6},{"e":5,"r":8.4},{"e":6,"r":8.7},{"e":7,"r":8.5},{"e":8,"r":9}],"S2":[{"e":1,"r":8.3},{"e":2,"r":8.2},{"e":3,"r":8.4},{"e":4,"r":8.1},{"e":5,"r":8.6},{"e":6,"r":8.3},{"e":7,"r":8.5},{"e":8,"r":8.4},{"e":9,"r":8.8}],"S3":[{"e":1,"r":8.3},{"e":2,"r":8.2},{"e":3,"r":8.4},{"e":4,"r":8.6},{"e":5,"r":8.5},{"e":6,"r":8.4},{"e":7,"r":8.5},{"e":8,"r":9.2}],"S4":[{"e":1,"r":8.4},{"e":2,"r":8.5},{"e":3,"r":8.3},{"e":4,"r":8.6},{"e":5,"r":8.4},{"e":6,"r":8.8},{"e":7,"r":9.4},{"e":8,"r":9.1},{"e":9,"r":8.9}]},"rt":93},{"i":"tt6751668","t":"Parasite","y":2019,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg","g":"","dir":"Bong Joon Ho","wr":"Bong Joon Ho, Jin Won Han","ac":["Kang-ho Song","Sun-kyun Lee","Yeo-jeong Jo","Woo-sik Choi"],"pl":"Greed and class discrimination threaten the newly formed symbiotic relationship between the wealthy Park family and the destitute Kim clan.","aw":"Won 4 Oscars including Best Picture. 312 wins & 271 nominations total.","bo":"$53.4M","lo":"Korean, English","co":"South Korea","pr":"CJ Entertainment","rm":0,"se":0,"ep":null,"rt":99,"mc":96},{"i":"tt7286456","t":"Joker","y":2019,"tp":"m","r":8.2,"p":"https://image.tmdb.org/t/p/w500/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg","g":"","dir":"Todd Phillips","wr":"Todd Phillips, Scott Silver","ac":["Joaquin Phoenix","Robert De Niro","Zazie Beetz","Frances Conroy"],"pl":"A mentally troubled stand-up comedian embarks on a downward spiral that leads to the creation of an iconic villain.","aw":"Won 2 Oscars. 121 wins & 224 nominations total.","bo":"$335.5M","lo":"English","co":"USA, Canada","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":68,"mc":59},{"i":"tt0120737","t":"LOTR: Fellowship of the Ring","y":2001,"tp":"m","r":8.8,"p":"https://image.tmdb.org/t/p/w500/6oom5QYQ2yQTMJIbnvbkBL9cHo6.jpg","g":"","dir":"Peter Jackson","wr":"J.R.R. Tolkien, Fran Walsh","ac":["Elijah Wood","Ian McKellen","Orlando Bloom","Viggo Mortensen"],"pl":"A meek Hobbit and eight companions set out to destroy the powerful One Ring and save Middle-earth.","aw":"Won 4 Oscars. 121 wins & 126 nominations total.","bo":"$315.5M","lo":"English, Sindarin","co":"New Zealand, USA","pr":"New Line Cinema","rm":0,"se":0,"ep":null,"rt":91,"mc":92},{"i":"tt0133093","t":"The Matrix","y":1999,"tp":"m","r":8.7,"p":"https://image.tmdb.org/t/p/w500/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg","g":"","dir":"Lana Wachowski, Lilly Wachowski","wr":"Lilly Wachowski, Lana Wachowski","ac":["Keanu Reeves","Laurence Fishburne","Carrie-Anne Moss","Hugo Weaving"],"pl":"A computer hacker learns about the true nature of his reality and his role in the war against its controllers.","aw":"Won 4 Oscars. 42 wins & 51 nominations total.","bo":"$171.5M","lo":"English","co":"USA","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":83,"mc":73},{"i":"tt0816692","t":"Interstellar","y":2014,"tp":"m","r":8.7,"p":"https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg","g":"","dir":"Christopher Nolan","wr":"Jonathan Nolan, Christopher Nolan","ac":["Matthew McConaughey","Anne Hathaway","Jessica Chastain","Michael Caine"],"pl":"When Earth becomes uninhabitable, a farmer and ex-NASA pilot is tasked to find a new planet for humans.","aw":"Won 1 Oscar. 44 wins & 148 nominations total.","bo":"$188.0M","lo":"English","co":"USA, UK, Canada","pr":"Paramount","rm":0,"se":0,"ep":null,"rt":73,"mc":74},{"i":"tt0068646","t":"The Godfather","y":1972,"tp":"m","r":9.2,"p":"https://image.tmdb.org/t/p/w500/3bhkrj58Vtu7enYsRolD1fZdja1.jpg","g":"","dir":"Francis Ford Coppola","wr":"Mario Puzo, Francis Ford Coppola","ac":["Marlon Brando","Al Pacino","James Caan","Robert Duvall"],"pl":"The aging patriarch of an organized crime dynasty transfers control to his reluctant son.","aw":"Won 3 Oscars including Best Picture. 31 wins & 30 nominations total.","bo":"$134.5M","lo":"English, Italian, Latin","co":"USA","pr":"Paramount","rm":0,"se":0,"ep":null,"rt":97,"mc":100},{"i":"tt0071562","t":"The Godfather Part II","y":1974,"tp":"m","r":9,"p":"https://image.tmdb.org/t/p/w500/hek3koDUyRQk7FIhPXsa6mT2Zc3.jpg","g":"","dir":"Francis Ford Coppola","wr":"Francis Ford Coppola, Mario Puzo","ac":["Al Pacino","Robert De Niro","Robert Duvall","Diane Keaton"],"pl":"The early life of Vito Corleone is portrayed while his son Michael expands the family crime syndicate.","aw":"Won 6 Oscars including Best Picture. 17 wins & 21 nominations total.","bo":"$57.3M","lo":"English, Italian, Spanish","co":"USA","pr":"Paramount","rm":0,"se":0,"ep":null,"rt":96,"mc":90},{"i":"tt0099685","t":"Goodfellas","y":1990,"tp":"m","r":8.7,"p":"https://image.tmdb.org/t/p/w500/aKuFiU82s5ISIFhlKknK5jR7j2W.jpg","g":"","dir":"Martin Scorsese","wr":"Nicholas Pileggi, Martin Scorsese","ac":["Robert De Niro","Ray Liotta","Joe Pesci","Lorraine Bracco"],"pl":"The story of Henry Hill and his life in the mob.","aw":"Won 1 Oscar. 44 wins & 38 nominations total.","bo":"$46.8M","lo":"English, Italian","co":"USA","pr":"Warner Bros.","rm":0,"se":0,"ep":null,"rt":96,"mc":90},{"i":"tt2582802","t":"Whiplash","y":2014,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg","g":"","dir":"Damien Chazelle","wr":"Damien Chazelle","ac":["Miles Teller","J.K. Simmons","Paul Reiser"],"pl":"A young drummer's dreams of greatness are mentored by an instructor who will stop at nothing to realize his potential.","aw":"Won 3 Oscars. 98 wins & 144 nominations total.","bo":"$13.1M","lo":"English","co":"USA","pr":"Sony Pictures Classics","rm":0,"se":0,"ep":null,"rt":94,"mc":88},{"i":"tt15239678","t":"Dune: Part Two","y":2024,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05Nez7.jpg","g":"","dir":"Denis Villeneuve","wr":"Denis Villeneuve, Jon Spaihts","ac":["Timothee Chalamet","Zendaya","Austin Butler","Florence Pugh"],"pl":"Paul Atreides unites with the Fremen while on a warpath of revenge.","aw":"Won 1 Oscar. 92 wins & 178 nominations total.","bo":"$282.1M","lo":"English","co":"USA, Canada, Hungary","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":92,"mc":79},{"i":"tt1745960","t":"Top Gun: Maverick","y":2022,"tp":"m","r":8.2,"p":"https://image.tmdb.org/t/p/w500/62HCnUTziyWcpDaBO2i1DX17ljH.jpg","g":"","dir":"Joseph Kosinski","wr":"Ehren Kruger, Eric Warren Singer","ac":["Tom Cruise","Jennifer Connelly","Miles Teller","Val Kilmer"],"pl":"After thirty years, Maverick is still pushing the envelope as a top naval aviator.","aw":"Won 1 Oscar. 49 wins & 102 nominations total.","bo":"$718.7M","lo":"English","co":"USA","pr":"Paramount","rm":0,"se":0,"ep":null,"rt":96,"mc":78},{"i":"tt4154796","t":"Avengers: Endgame","y":2019,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/or06FN3Dka5tukK1e9sl16pB3iy.jpg","g":"","dir":"Anthony Russo, Joe Russo","wr":"Christopher Markus, Stephen McFeely","ac":["Robert Downey Jr.","Chris Evans","Mark Ruffalo","Chris Hemsworth","Scarlett Johansson"],"pl":"The Avengers assemble once more to reverse Thanos' actions and restore balance to the universe.","aw":"Nominated for 1 Oscar. 70 wins & 132 nominations total.","bo":"$858.4M","lo":"English","co":"USA","pr":"Marvel Studios","rm":0,"se":0,"ep":null,"rt":94,"mc":78},{"i":"tt2096673","t":"Inside Out","y":2015,"tp":"m","r":8.1,"p":"https://image.tmdb.org/t/p/w500/2H1TmgdfNtsKlU9osGFOgqbBGQN.jpg","g":"","dir":"Pete Docter","wr":"Pete Docter, Meg LeFauve","ac":["Amy Poehler","Bill Hader","Lewis Black","Mindy Kaling"],"pl":"After young Riley is uprooted, her emotions conflict on how best to navigate a new city.","aw":"Won 1 Oscar. 81 wins & 58 nominations total.","bo":"$356.5M","lo":"English","co":"USA","pr":"Pixar","rm":0,"se":0,"ep":null,"rt":98,"mc":94},{"i":"tt0338013","t":"Eternal Sunshine of the Spotless Mind","y":2004,"tp":"m","r":8.3,"p":"https://image.tmdb.org/t/p/w500/5MwkWH9tYHv3mV9OdYTMR5qreIz.jpg","g":"","dir":"Michel Gondry","wr":"Charlie Kaufman, Michel Gondry","ac":["Jim Carrey","Kate Winslet","Tom Wilkinson","Kirsten Dunst"],"pl":"When their relationship turns sour, a couple undergoes a procedure to have each other erased from their memories.","aw":"Won 1 Oscar. 62 wins & 66 nominations total.","bo":"$34.4M","lo":"English","co":"USA","pr":"Focus Features","rm":0,"se":0,"ep":null,"rt":92,"mc":89},{"i":"tt0167260","t":"LOTR: Return of the King","y":2003,"tp":"m","r":9,"p":"https://image.tmdb.org/t/p/w500/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg","g":"","dir":"Peter Jackson","wr":"J.R.R. Tolkien, Fran Walsh","ac":["Elijah Wood","Viggo Mortensen","Ian McKellen","Orlando Bloom"],"pl":"Gandalf and Aragorn lead the World of Men against Sauron's army.","aw":"Won 11 Oscars including Best Picture. 215 wins & 124 nominations total.","bo":"$377.8M","lo":"English, Quenya","co":"New Zealand, USA","pr":"New Line Cinema","rm":0,"se":0,"ep":null,"rt":93,"mc":94},{"i":"tt0172495","t":"Gladiator","y":2000,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/ty8TGRuvJLPUmAR1H1nRIsgCLYV.jpg","g":"","dir":"Ridley Scott","wr":"David Franzoni, John Logan","ac":["Russell Crowe","Joaquin Phoenix","Connie Nielsen","Oliver Reed"],"pl":"A former Roman General sets out to exact vengeance against the corrupt emperor.","aw":"Won 5 Oscars including Best Picture. 59 wins & 106 nominations total.","bo":"$186.7M","lo":"English","co":"USA, UK","pr":"DreamWorks","rm":0,"se":0,"ep":null,"rt":80,"mc":67},{"i":"tt0407887","t":"The Departed","y":2006,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/nT97gVT4YB6KBr7WX5iMlAnE2EJ.jpg","g":"","dir":"Martin Scorsese","wr":"William Monahan, Alan Mak","ac":["Leonardo DiCaprio","Matt Damon","Jack Nicholson","Mark Wahlberg"],"pl":"An undercover cop and a mole in the police attempt to identify each other.","aw":"Won 4 Oscars including Best Picture. 97 wins & 141 nominations total.","bo":"$132.4M","lo":"English, Cantonese","co":"USA","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":91,"mc":85},{"i":"tt1853728","t":"Django Unchained","y":2012,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/7oWY8NVDFkW4lHcXPlJ9XyGlhbm.jpg","g":"","dir":"Quentin Tarantino","wr":"Quentin Tarantino","ac":["Jamie Foxx","Christoph Waltz","Leonardo DiCaprio","Kerry Washington"],"pl":"With the help of a bounty hunter, a freed slave sets out to rescue his wife from a brutal plantation owner.","aw":"Won 2 Oscars. 58 wins & 158 nominations total.","bo":"$162.8M","lo":"English, German, French","co":"USA","pr":"The Weinstein Company","rm":0,"se":0,"ep":null,"rt":87,"mc":81},{"i":"tt1392190","t":"Mad Max: Fury Road","y":2015,"tp":"m","r":8.1,"p":"https://image.tmdb.org/t/p/w500/8tZYtuWezp8JbcsvHYO0O46tFbo.jpg","g":"","dir":"George Miller","wr":"George Miller, Brendan McCarthy","ac":["Tom Hardy","Charlize Theron","Nicholas Hoult","Hugh Keays-Byrne"],"pl":"In a post-apocalyptic wasteland, a woman rebels against a tyrannical ruler.","aw":"Won 6 Oscars. 240 wins & 233 nominations total.","bo":"$154.1M","lo":"English","co":"Australia, USA","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":97,"mc":90},{"i":"tt0245429","t":"Spirited Away","y":2001,"tp":"m","r":8.6,"p":"https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg","g":"","dir":"Hayao Miyazaki","wr":"Hayao Miyazaki","ac":["Rumi Hiiragi","Miyu Irino","Mari Natsuki"],"pl":"A sullen 10-year-old girl wanders into a world ruled by gods, witches, and spirits.","aw":"Won 1 Oscar. 58 wins & 31 nominations total.","bo":"$10.1M","lo":"Japanese","co":"Japan","pr":"Studio Ghibli","rm":0,"se":0,"ep":null,"rt":97,"mc":96},{"i":"tt2380307","t":"Coco","y":2017,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/gGEsBPAijhVUFoiNpgZXqRVWJt2.jpg","g":"","dir":"Lee Unkrich, Adrian Molina","wr":"Lee Unkrich, Adrian Molina","ac":["Anthony Gonzalez","Gael Garcia Bernal","Benjamin Bratt"],"pl":"Aspiring musician Miguel enters the Land of the Dead to find his great-great-grandfather.","aw":"Won 2 Oscars. 109 wins & 40 nominations total.","bo":"$209.7M","lo":"English, Spanish","co":"USA","pr":"Pixar","rm":0,"se":0,"ep":null,"rt":97,"mc":81},{"i":"tt4633694","t":"Spider-Man: Into the Spider-Verse","y":2018,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/iiZZdoQBEYBv6O9BpJHEQ3q00dt.jpg","g":"","dir":"Bob Persichetti, Peter Ramsey","wr":"Phil Lord, Rodney Rothman","ac":["Shameik Moore","Jake Johnson","Hailee Steinfeld","Mahershala Ali"],"pl":"Teen Miles Morales becomes the Spider-Man of his reality and crosses paths with his counterparts from other dimensions.","aw":"Won 1 Oscar. 86 wins & 56 nominations total.","bo":"$190.2M","lo":"English","co":"USA","pr":"Sony Pictures Animation","rm":0,"se":0,"ep":null,"rt":97,"mc":87},{"i":"tt10872600","t":"Spider-Man: No Way Home","y":2021,"tp":"m","r":8.2,"p":"https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg","g":"","dir":"Jon Watts","wr":"Chris McKenna, Erik Sommers","ac":["Tom Holland","Zendaya","Benedict Cumberbatch","Willem Dafoe"],"pl":"With Spider-Man's identity revealed, Peter asks Doctor Strange for help, but dangerous foes from other worlds appear.","aw":"Nominated for 1 Oscar. 30 wins & 68 nominations total.","bo":"$804.7M","lo":"English","co":"USA","pr":"Sony Pictures","rm":0,"se":0,"ep":null,"rt":93,"mc":71},{"i":"tt0209144","t":"Memento","y":2000,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/yuNs09hVPpYeVX7aJkKOMd5oBbl.jpg","g":"","dir":"Christopher Nolan","wr":"Christopher Nolan, Jonathan Nolan","ac":["Guy Pearce","Carrie-Anne Moss","Joe Pantoliano"],"pl":"A man with short-term memory loss attempts to track down his wife's murderer.","aw":"Nominated for 2 Oscars. 57 wins & 55 nominations total.","bo":"$25.5M","lo":"English","co":"USA","pr":"Newmarket Films","rm":0,"se":0,"ep":null,"rt":93,"mc":83},{"i":"tt0266543","t":"Finding Nemo","y":2003,"tp":"m","r":8.2,"p":"https://image.tmdb.org/t/p/w500/eHuGQ10fuua0BdqUjR0gUZM4pPJ.jpg","g":"","dir":"Andrew Stanton","wr":"Andrew Stanton, Bob Peterson","ac":["Albert Brooks","Ellen DeGeneres","Alexander Gould","Willem Dafoe"],"pl":"After his son is captured, a timid clownfish sets out on a journey to bring him home.","aw":"Won 1 Oscar. 44 wins & 53 nominations total.","bo":"$380.8M","lo":"English","co":"USA","pr":"Pixar","rm":0,"se":0,"ep":null,"rt":99,"mc":90},{"i":"tt0477348","t":"No Country for Old Men","y":2007,"tp":"m","r":8.2,"p":"https://image.tmdb.org/t/p/w500/bj1v6YKFZKfG0wK4m8eOjA9jMOp.jpg","g":"","dir":"Ethan Coen, Joel Coen","wr":"Joel Coen, Ethan Coen","ac":["Javier Bardem","Josh Brolin","Tommy Lee Jones","Woody Harrelson"],"pl":"Violence and mayhem ensue after a hunter stumbles upon a drug deal gone wrong.","aw":"Won 4 Oscars including Best Picture. 161 wins & 139 nominations total.","bo":"$74.3M","lo":"English, Spanish","co":"USA","pr":"Miramax","rm":0,"se":0,"ep":null,"rt":93,"mc":91},{"i":"tt0910970","t":"WALL-E","y":2008,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/hbhFnRzzg6ZDmm8YAmxBnQpQIPh.jpg","g":"","dir":"Andrew Stanton","wr":"Andrew Stanton, Pete Docter","ac":["Ben Burtt","Elissa Knight","Jeff Garlin","Sigourney Weaver"],"pl":"A small waste-collecting robot inadvertently embarks on a space journey that will decide the fate of mankind.","aw":"Won 1 Oscar. 96 wins & 96 nominations total.","bo":"$223.8M","lo":"English","co":"USA","pr":"Pixar","rm":0,"se":0,"ep":null,"rt":95,"mc":95},{"i":"tt0080684","t":"Star Wars: The Empire Strikes Back","y":1980,"tp":"m","r":8.7,"p":"https://image.tmdb.org/t/p/w500/nNAeTmF4CtdSgk3Y4nUbMh7RxsK.jpg","g":"","dir":"Irvin Kershner","wr":"Leigh Brackett, Lawrence Kasdan","ac":["Mark Hamill","Harrison Ford","Carrie Fisher","Billy Dee Williams"],"pl":"After the Rebels are overpowered on Hoth, Luke begins Jedi training with Yoda while his friends are pursued by Darth Vader.","aw":"Won 1 Oscar. 25 wins & 20 nominations total.","bo":"$209.4M","lo":"English","co":"USA","pr":"Lucasfilm","rm":0,"se":0,"ep":null,"rt":94,"mc":82},{"i":"tt0047478","t":"Seven Samurai","y":1954,"tp":"m","r":8.6,"p":"https://image.tmdb.org/t/p/w500/8OKmBV5BUFzmozIC3pPWKwj100t.jpg","g":"","dir":"Akira Kurosawa","wr":"Akira Kurosawa, Shinobu Hashimoto","ac":["Toshiro Mifune","Takashi Shimura","Keiko Tsushima"],"pl":"A poor village under attack by bandits recruits seven unemployed samurai to help them defend themselves.","aw":"Nominated for 2 Oscars. 8 wins total.","bo":"$0.3M","lo":"Japanese","co":"Japan","pr":"Toho","rm":0,"se":0,"ep":null,"rt":100,"mc":98},{"i":"tt0050083","t":"12 Angry Men","y":1957,"tp":"m","r":9,"p":"https://image.tmdb.org/t/p/w500/ppd1tIPZmTd6M2xkB7g3sS9Uaz.jpg","g":"","dir":"Sidney Lumet","wr":"Reginald Rose","ac":["Henry Fonda","Lee J. Cobb","Martin Balsam","E.G. Marshall"],"pl":"The jury in a murder trial is frustrated by a single member whose skeptical caution forces them to consider the evidence more carefully.","aw":"Nominated for 3 Oscars. 14 wins total.","bo":"$4.4M","lo":"English","co":"USA","pr":"Orion-Nova","rm":0,"se":0,"ep":null,"rt":100,"mc":97},{"i":"tt0118799","t":"Life Is Beautiful","y":1997,"tp":"m","r":8.6,"p":"https://image.tmdb.org/t/p/w500/74hLDKjD3a8xGV3pIij0Rp9Ls1w.jpg","g":"","dir":"Roberto Benigni","wr":"Vincenzo Cerami, Roberto Benigni","ac":["Roberto Benigni","Nicoletta Braschi","Giorgio Cantarini"],"pl":"When an open-minded Jewish waiter and his son become victims of the Holocaust, he uses humor and imagination to protect his son.","aw":"Won 3 Oscars. 71 wins & 32 nominations total.","bo":"$57.6M","lo":"Italian, German, English","co":"Italy","pr":"Melampo Cinematografica","rm":0,"se":0,"ep":null,"rt":80},{"i":"tt0095765","t":"Cinema Paradiso","y":1988,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/8SRUfRUi6d4g0OYTSs6MFKit2xg.jpg","g":"","dir":"Giuseppe Tornatore","wr":"Giuseppe Tornatore, Vincenzo Cerami","ac":["Philippe Noiret","Enzo Cannarale","Antonella Attili"],"pl":"A filmmaker recalls his childhood when falling in love with the pictures at the cinema of his home village.","aw":"Won 1 Oscar. 22 wins & 16 nominations total.","bo":"$12.4M","lo":"Italian","co":"Italy, France","pr":"Cristaldifilm","rm":0,"se":0,"ep":null,"rt":90},{"i":"tt5311514","t":"Your Name","y":2016,"tp":"m","r":8.4,"p":"https://image.tmdb.org/t/p/w500/q719jXXEhI5qUsualsqRa1u2XSW.jpg","g":"","dir":"Makoto Shinkai","wr":"Makoto Shinkai","ac":["Ryunosuke Kamiki","Mone Kamishiraishi","Ryo Narita"],"pl":"Two strangers find themselves linked in a bizarre way. When a connection forms, will distance be the only thing to keep them apart?","aw":"54 wins & 33 nominations.","bo":"$358.0M","lo":"Japanese","co":"Japan","pr":"CoMix Wave Films","rm":0,"se":0,"ep":null,"rt":98,"mc":79},{"i":"tt2278388","t":"The Grand Budapest Hotel","y":2014,"tp":"m","r":8.1,"p":"https://image.tmdb.org/t/p/w500/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg","g":"","dir":"Wes Anderson","wr":"Wes Anderson, Hugo Guinness","ac":["Ralph Fiennes","F. Murray Abraham","Mathieu Amalric","Adrien Brody"],"pl":"A writer encounters the owner of an aging high-class hotel, who tells of his early years serving as a lobby boy.","aw":"Won 4 Oscars. 134 wins & 204 nominations total.","bo":"$59.1M","lo":"English, French, German","co":"Germany, USA","pr":"Fox Searchlight","rm":0,"se":0,"ep":null,"rt":92,"mc":88},{"i":"tt1690967","t":"The Pianist","y":2002,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/2hFkYj5ECiELlUlJ3p5AcVPBE.jpg","g":"","dir":"Roman Polanski","wr":"Ronald Harwood, Wladyslaw Szpilman","ac":["Adrien Brody","Thomas Kretschmann","Frank Finlay"],"pl":"A Polish Jewish musician struggles to survive the destruction of the Warsaw ghetto of World War II.","aw":"Won 3 Oscars. 57 wins & 74 nominations total.","bo":"$32.6M","lo":"English, German, Russian","co":"France, Poland, Germany, UK","pr":"Focus Features","rm":0,"se":0,"ep":null,"rt":95,"mc":85},{"i":"tt0114709","t":"Toy Story","y":1995,"tp":"m","r":8.3,"p":"https://image.tmdb.org/t/p/w500/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg","g":"","dir":"John Lasseter","wr":"John Lasseter, Joss Whedon","ac":["Tom Hanks","Tim Allen","Don Rickles","Jim Varney"],"pl":"A cowboy doll is profoundly threatened when a new spaceman action figure supplants him as top toy.","aw":"Nominated for 3 Oscars. 27 wins total.","bo":"$191.8M","lo":"English","co":"USA","pr":"Pixar","rm":0,"se":0,"ep":null,"rt":100,"mc":95},{"i":"tt0361748","t":"Inglourious Basterds","y":2009,"tp":"m","r":8.3,"p":"https://image.tmdb.org/t/p/w500/7sfbEnaARXDDhKm0CZ7D7uc2sbo.jpg","g":"","dir":"Quentin Tarantino","wr":"Quentin Tarantino","ac":["Brad Pitt","Diane Kruger","Eli Roth","Christoph Waltz","Michael Fassbender"],"pl":"In Nazi-occupied France, a plan to assassinate Nazi leaders by Jewish U.S. soldiers coincides with a theatre owner's vengeful plans.","aw":"Nominated for 8 Oscars. 132 wins & 173 nominations total.","bo":"$120.5M","lo":"English, German, French, Italian","co":"USA, Germany","pr":"The Weinstein Company","rm":0,"se":0,"ep":null,"rt":89,"mc":69},{"i":"tt0034583","t":"Casablanca","y":1942,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/5K7Vc7MYMekOFKqobEzQEi.jpg","g":"","dir":"Michael Curtiz","wr":"Julius J. Epstein, Philip G. Epstein","ac":["Humphrey Bogart","Ingrid Bergman","Paul Henreid","Claude Rains"],"pl":"A cynical expatriate American cafe owner struggles to decide whether to help his former lover and her fugitive husband escape the Nazis.","aw":"Won 3 Oscars including Best Picture. 14 wins total.","bo":"$1.0M","lo":"English, French, German, Italian","co":"USA","pr":"Warner Bros.","rm":0,"se":0,"ep":null,"rt":99},{"i":"tt0056172","t":"Lawrence of Arabia","y":1962,"tp":"m","r":8.3,"p":"https://image.tmdb.org/t/p/w500/AiAm0Aj1YNvVuTFrsnMFgR1jEjU.jpg","g":"","dir":"David Lean","wr":"Robert Bolt, Michael Wilson","ac":["Peter O'Toole","Alec Guinness","Anthony Quinn","Jack Hawkins"],"pl":"The story of T.E. Lawrence, the English officer who united the Arab tribes during World War I.","aw":"Won 7 Oscars including Best Picture. 30 wins total.","bo":"$44.8M","lo":"English, Arabic, Turkish","co":"UK","pr":"Horizon Pictures","rm":0,"se":0,"ep":null,"rt":95,"mc":100},{"i":"tt0253474","t":"The Pianist","y":2002,"tp":"m","r":8.5,"p":"https://image.tmdb.org/t/p/w500/2hFkYj5ECiELlUlJ3p5AcVPBE.jpg","g":"","dir":"Roman Polanski","wr":"Ronald Harwood","ac":["Adrien Brody","Thomas Kretschmann","Frank Finlay"],"pl":"A Polish Jewish musician struggles to survive the destruction of the Warsaw ghetto.","aw":"Won 3 Oscars. 57 wins & 74 nominations total.","bo":"$32.6M","lo":"English, German, Russian","co":"France, Poland","pr":"Focus Features","rm":0,"se":0,"ep":null,"rt":95,"mc":85},{"i":"tt15398776","t":"Oppenheimer","y":2023,"tp":"m","r":8.3,"p":"https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg","g":"","dir":"Christopher Nolan","wr":"Christopher Nolan","ac":["Cillian Murphy","Emily Blunt","Matt Damon","Robert Downey Jr.","Florence Pugh"],"pl":"The story of American scientist J. Robert Oppenheimer and his role in the development of the atomic bomb.","aw":"Won 7 Oscars including Best Picture. 326 wins & 345 nominations total.","bo":"$329.9M","lo":"English, German, Italian","co":"USA, UK","pr":"Universal Pictures","rm":0,"se":0,"ep":null,"rt":93,"mc":88},{"i":"tt1160419","t":"Dune","y":2021,"tp":"m","r":8,"p":"https://image.tmdb.org/t/p/w500/d5NXSklXo0qyIYkgV94XAgMIckC.jpg","g":"","dir":"Denis Villeneuve","wr":"Jon Spaihts, Denis Villeneuve, Eric Roth","ac":["Timothee Chalamet","Rebecca Ferguson","Oscar Isaac","Josh Brolin","Stellan Skarsgard"],"pl":"Paul Atreides, a brilliant young man born into a great destiny beyond his understanding, must travel to the most dangerous planet in the universe.","aw":"Won 6 Oscars. 227 wins & 283 nominations total.","bo":"$407.6M","lo":"English, Mandarin","co":"USA, Canada, Hungary","pr":"Warner Bros. Pictures","rm":0,"se":0,"ep":null,"rt":83,"mc":74},{"i":"tt0435761","t":"Toy Story 3","y":2010,"tp":"m","r":8.3,"p":"https://image.tmdb.org/t/p/w500/AbbM3PifSsKI05JBkKZfDlmMMeM.jpg","g":"","dir":"Lee Unkrich","wr":"John Lasseter, Andrew Stanton","ac":["Tom Hanks","Tim Allen","Joan Cusack","Ned Beatty"],"pl":"The toys are mistakenly delivered to a day-care center instead of the attic right before Andy leaves for college.","aw":"Won 2 Oscars. 63 wins & 95 nominations total.","bo":"$415.0M","lo":"English, Spanish","co":"USA","pr":"Pixar","rm":0,"se":0,"ep":null,"rt":98,"mc":92},{"i":"tt0108052","t":"Schindler's List","y":1993,"tp":"m","r":9,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0167261","t":"The Lord of the Rings: The Two Towers","y":2002,"tp":"m","r":8.8,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0060196","t":"The Good, the Bad and the Ugly","y":1966,"tp":"m","r":8.8,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt23849204","t":"12th Fail","y":2023,"tp":"m","r":8.7,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt7466810","t":"777 Charlie","y":2022,"tp":"m","r":8.7,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0114369","t":"Se7en","y":1995,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0102926","t":"The Silence of the Lambs","y":1991,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0120815","t":"Saving Private Ryan","y":1998,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0076759","t":"Star Wars: Episode IV - A New Hope","y":1977,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0120689","t":"The Green Mile","y":1999,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0103064","t":"Terminator 2: Judgment Day","y":1991,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0073486","t":"One Flew Over the Cuckoo's Nest","y":1975,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0317248","t":"City of God","y":2002,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0038650","t":"It's a Wonderful Life","y":1946,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt15097216","t":"Jai Bhim","y":2021,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt10189514","t":"Soorarai Pottru","y":2020,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0056058","t":"Harakiri","y":1962,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt9263550","t":"Rocketry: The Nambi Effect","y":2022,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt24082438","t":"20 Days in Mariupol","y":2023,"tp":"m","r":8.6,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0482571","t":"The Prestige","y":2006,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0088763","t":"Back to the Future","y":1985,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0110413","t":"Léon: The Professional","y":1994,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0120586","t":"American History X","y":1998,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0110357","t":"The Lion King","y":1994,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0114814","t":"The Usual Suspects","y":1995,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0078748","t":"Alien","y":1979,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1675434","t":"The Intouchables","y":2011,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0054215","t":"Psycho","y":1960,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt10811166","t":"The Kashmir Files","y":2022,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0047396","t":"Rear Window","y":1954,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt9362722","t":"Spider-Man: Across the Spider-Verse","y":2023,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0064116","t":"Once Upon a Time in the West","y":1968,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0095327","t":"Grave of the Fireflies","y":1988,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0027977","t":"Modern Times","y":1936,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0021749","t":"City Lights","y":1931,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt20850406","t":"Sita Ramam","y":2022,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt34365591","t":"Mahavatar Narsimha","y":2024,"tp":"m","r":8.5,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1345836","t":"The Dark Knight Rises","y":2012,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt4154756","t":"Avengers: Infinity War","y":2018,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0081505","t":"The Shining","y":1980,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0082971","t":"Raiders of the Lost Ark","y":1981,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0090605","t":"Aliens","y":1986,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0078788","t":"Apocalypse Now","y":1979,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1187043","t":"3 Idiots","y":2009,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0086879","t":"Amadeus","y":1984,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0405094","t":"The Lives of Others","y":2006,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0082096","t":"Das Boot","y":1981,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0043014","t":"Sunset Boulevard","y":1950,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0032553","t":"The Great Dictator","y":1940,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0050825","t":"Paths of Glory","y":1957,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0051201","t":"Witness for the Prosecution","y":1957,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt8267604","t":"Capernaum","y":2018,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1424432","t":"Senna","y":2010,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt32820897","t":"Demon Slayer: Kimetsu No Yaiba Infinity Castle","y":2025,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0057565","t":"High and Low","y":1963,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt9900782","t":"Kaithi","y":2019,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt31514146","t":"I Swear","y":2025,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt3417422","t":"Drishyam","y":2013,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt12361178","t":"Drishyam 2","y":2021,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0770802","t":"Samsara","y":2011,"tp":"m","r":8.4,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0169547","t":"American Beauty","y":1999,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1049413","t":"Up","y":2009,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0086190","t":"Star Wars: Episode VI - Return of the Jedi","y":1983,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0119217","t":"Good Will Hunting","y":1997,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0105236","t":"Reservoir Dogs","y":1992,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0112573","t":"Braveheart","y":1995,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0086250","t":"Scarface","y":1983,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0180093","t":"Requiem for a Dream","y":2000,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0211915","t":"Amélie","y":2001,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0113277","t":"Heat","y":1995,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0062622","t":"2001: A Space Odyssey","y":1968,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0364569","t":"Oldboy","y":2003,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0057012","t":"Dr. Strangelove or: How I Learned to Stop Worrying and Love the Bomb","y":1964,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0119698","t":"Princess Mononoke","y":1997,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0087843","t":"Once Upon a Time in America","y":1984,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt2106476","t":"The Hunt","y":2012,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0053125","t":"North by Northwest","y":1959,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt12042730","t":"Project Hail Mary","y":2026,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0056592","t":"To Kill a Mockingbird","y":1962,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0045152","t":"Singin' in the Rain","y":1952,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1832382","t":"A Separation","y":2011,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt1255953","t":"Incendies","y":2010,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt5074352","t":"Dangal","y":2016,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0986264","t":"Like Stars on Earth","y":2007,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0053604","t":"The Apartment","y":1960,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0022100","t":"M","y":1931,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0036775","t":"Double Indemnity","y":1944,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt33014583","t":"Dhurandhar","y":2025,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt8110330","t":"Dil Bechara","y":2020,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt8503618","t":"Hamilton","y":2020,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt10295212","t":"Shershaah","y":2021,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0091251","t":"Come and See","y":1985,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0044741","t":"Ikiru","y":1952,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt0055031","t":"Judgment at Nuremberg","y":1961,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt9179430","t":"Vikram","y":2022,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt26548265","t":"Maharaja","y":2024,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt9052870","t":"Chhichhore","y":2019,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt30472557","t":"Chainsaw Man - The Movie: Reze Arc","y":2025,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt7060344","t":"Raatchasan","y":2018,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null},{"i":"tt10280296","t":"Sardar Udham","y":2021,"tp":"m","r":8.3,"p":"","g":"","dir":"","wr":"","ac":[],"pl":"","aw":"","bo":"","lo":"","co":"","pr":"","rm":0,"se":0,"ep":null}];
+
+/* ================================================================
+   data loading
+   ================================================================ */
+function norm(s) {
+  return (s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ').replace(/^\s+|\s+$/g, '');
+}
+function isSubseq(q, s) {
+  var i = 0;
+  for (var j = 0; j < s.length && i < q.length; j++) if (q[i] === s[j]) i++;
+  return i === q.length;
+}
+function dl(a, b) {
+  var m = a.length, n = b.length;
+  if (Math.abs(m - n) > 3) return Math.abs(m - n) + 2;
+  var d = [];
+  for (var i = 0; i <= m; i++) { d[i] = [i]; for (var j = 1; j <= n; j++) d[i][j] = 0; }
+  for (var j = 0; j <= n; j++) d[0][j] = j;
+  for (var i = 1; i <= m; i++) for (var j = 1; j <= n; j++) {
+    var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+      d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+  }
+  return d[m][n];
+}
+function scoreFuzzy(q, title) {
+  var nq = norm(q), nt = norm(title);
+  if (!nq || !nt) return 0;
+  if (nt === nq) return 1;
+  if (nt.indexOf(nq) === 0) return 0.93;
+  if (nt.indexOf(nq) > 0) return 0.86;
+  var qw = nq.split(' '), tw = nt.split(' ');
+  var hit = 0;
+  for (var w = 0; w < qw.length; w++) {
+    var exact = false;
+    for (var x = 0; x < tw.length; x++) if (tw[x] === qw[w] || tw[x].indexOf(qw[w]) === 0) { exact = true; break; }
+    if (exact) hit += 1;
+    else { var sub = false; for (var y = 0; y < tw.length; y++) if (isSubseq(qw[w], tw[y])) { sub = true; break; } if (sub) hit += 0.7; }
+  }
+  var cov = hit / qw.length;
+  if (cov >= 0.7) return Math.max(cov * 0.8, 0.62);
+  if (Math.abs(nq.length - nt.length) <= 3) {
+    var s1 = 1 - dl(nq, nt) / Math.max(nq.length, nt.length);
+    if (s1 > 0.6) return s1 * 0.9;
+  }
+  var best = 0;
+  for (var i = 0; i < qw.length; i++) {
+    var w2 = qw[i]; if (w2.length < 3) continue;
+    for (var j = 0; j < tw.length; j++) {
+      var x2 = tw[j];
+      if (Math.abs(w2.length - x2.length) > 2) continue;
+      var d = dl(w2, x2);
+      if (d <= 2) { var s2 = 1 - d / Math.max(w2.length, x2.length); if (s2 > best) best = s2; }
+    }
+  }
+  if (best >= 0.6) return best * 0.8;
+  return cov * 0.55;
+}
+
+function loadTitles() {
+  var cached = LS.get('cs_titles');
+  var fresh = null;
+  return fetch('public/titles.json?v=' + Date.now())
+    .then(function (r) { if (!r.ok) throw new Error('titles 404'); return r.json(); })
+    .then(function (j) {
+      if (j && j.items && j.items.length) {
+        fresh = j.items;
+        LS.set('cs_titles', { at: Date.now(), items: fresh });
+      }
+      TITLES = fresh || (cached && cached.items) || [];
+    })
+    .catch(function () {
+      TITLES = (cached && cached.items) || [];
+    })
+    .then(function () {
+      if (!TITLES.length) { TITLES = FALLBACK.map(function (f) { return { i: f.i, t: f.t, y: f.y || 0, tp: f.tp, r: f.r || 0, v: f.v || 0, p: f.p || '' }; }); }
+      if (!TITLES.length) { /* nothing */ }
+    });
+}
+
+function fetchProgress(url, onP) {
+  return fetch(url).then(function (r) {
+    if (!r.ok) throw new Error('fetch ' + r.status);
+    var total = parseInt(r.headers.get('content-length') || '0', 10) || 0;
+    if (!total || !r.body) return r.json();
+    var reader = r.body.getReader();
+    var chunks = [], got = 0;
+    function pump() {
+      return reader.read().then(function (x) {
+        if (x.done) {
+          var bin = new Uint8Array(got), o = 0;
+          chunks.forEach(function (c) { bin.set(c, o); o += c.length; });
+          return JSON.parse(new TextDecoder('utf-8').decode(bin));
+        }
+        chunks.push(x.value); got += x.value.length;
+        onP(total ? got / total : 0);
+        return pump();
+      });
+    }
+    return pump();
+  });
+}
+
+var progEl = null;
+function showProg(show) {
+  if (!progEl) {
+    progEl = document.createElement('div');
+    progEl.className = 'prog-ov';
+    progEl.innerHTML = '<div class="prog-box"><div class="pb-t">' + t('dbLoading') + '</div><div class="pb-s">' + t('dbOnce') + '</div>' +
+      '<div class="pb-bar"><div class="pb-fill" id="pbFill"></div></div><div class="pb-pct" id="pbPct">0%</div></div>';
+    document.body.appendChild(progEl);
+    progEl.style.display = 'none';
+  }
+  progEl.style.display = show ? 'flex' : 'none';
+}
+function ensureDB() {
+  if (DB) return Promise.resolve(DB);
+  return idbGet('db').then(function (cached) {
+    if (cached && cached.items) { DB = cached; return DB; }
+    showProg(true);
+    return fetchProgress('public/db.json?v=' + Date.now(), function (p) {
+      var f = document.getElementById('pbFill'), pc = document.getElementById('pbPct');
+      if (f) f.style.width = Math.round(p * 100) + '%';
+      if (pc) pc.textContent = Math.round(p * 100) + '%';
+    }).then(function (j) {
+      showProg(false);
+      if (!j || !j.items) throw new Error('bad db');
+      DB = j;
+      idbPut('db', DB);
+      return DB;
+    }).catch(function () {
+      showProg(false);
+      DB = { items: [] };
+      return DB;
+    });
+  });
+}
+
+/* ================================================================
+   live fetch (OMDb / TMDB / Wikipedia) — fallback for rare titles
+   ================================================================ */
+function fetchT(url, ms) {
+  var c = new AbortController();
+  var tm = setTimeout(function () { c.abort(); }, ms || 9000);
+  return fetch(url, { signal: c.signal }).then(function (r) {
+    clearTimeout(tm);
+    return r;
+  }).catch(function (e) { clearTimeout(tm); throw e; });
+}
+function omdb(params) {
+  var q = new URLSearchParams(Object.assign({ apikey: OMDB_KEY }, params));
+  return fetchT('https://www.omdbapi.com/?' + q).then(function (r) { return r.json(); });
+}
+function tmdb(path, qs) {
+  var q = new URLSearchParams(Object.assign({ api_key: TMDB_KEY }, qs || {}));
+  return fetchT('https://api.themoviedb.org/3' + path + '?' + q).then(function (r) { return r.json(); });
+}
+function wikiApi(qs) {
+  var q = new URLSearchParams(Object.assign({ format: 'json', origin: '*' }, qs));
+  return fetchT('https://en.wikipedia.org/w/api.php?' + q).then(function (r) { return r.json(); });
+}
+
+function mapOMDb(j) {
+  var rec = { i: j.imdbID || '', t: j.Title || '', y: parseInt(j.Year, 10) || 0, tp: j.Type === 'series' ? 's' : 'm', r: 0, v: 0, se: 0 };
+  var r = parseFloat(j.imdbRating); if (!isNaN(r)) rec.r = r;
+  var v = parseInt(String(j.imdbVotes || '').replace(/,/g, ''), 10); if (!isNaN(v)) rec.v = v;
+  (j.Ratings || []).forEach(function (x) {
+    if (x.Source === 'Rotten Tomatoes') { var n = parseInt(x.Value, 10); if (!isNaN(n)) rec.rt = n; }
+    else if (x.Source === 'Metacritic') { var m = parseInt(x.Value, 10); if (!isNaN(m)) rec.mc = m; }
+  });
+  if (j.Director && j.Director !== 'N/A') rec.dir = j.Director;
+  if (j.Writer && j.Writer !== 'N/A') rec.wr = j.Writer;
+  if (j.Actors && j.Actors !== 'N/A') rec.ac = j.Actors.split(',').map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 8);
+  if (j.Plot && j.Plot !== 'N/A') rec.pl = j.Plot;
+  if (j.Genre && j.Genre !== 'N/A') rec.g = j.Genre;
+  if (j.Awards && j.Awards !== 'N/A') rec.aw = j.Awards;
+  if (j.BoxOffice && j.BoxOffice !== 'N/A') rec.bo = j.BoxOffice;
+  if (j.Language && j.Language !== 'N/A') rec.lo = j.Language;
+  if (j.Country && j.Country !== 'N/A') rec.co = j.Country;
+  if (j.Production && j.Production !== 'N/A') rec.pr = j.Production;
+  var rm = parseInt(String(j.Runtime || '').replace(/[^0-9]/g, ''), 10);
+  if (!isNaN(rm) && rm > 0) rec.rm = rm;
+  if (j.Poster && j.Poster !== 'N/A') rec.p = j.Poster;
+  var ts = parseInt(j.totalSeasons, 10); if (!isNaN(ts) && ts > 0) rec.se = ts;
+  return rec;
+}
+function enrichTMDB(rec) {
+  if (!TMDB_KEY) return Promise.resolve();
+  var kind = rec.tp === 's' ? 'tv' : 'movie';
+  return tmdb('/find/' + encodeURIComponent(rec.i), { external_source: 'imdb_id' })
+    .then(function (found) {
+      var hit = (found.movie_results || []).concat(found.tv_results || [])[0];
+      if (!hit) return null;
+      rec.tmid = hit.id;
+      return Promise.all([
+        tmdb('/' + kind + '/' + hit.id),
+        tmdb('/' + kind + '/' + hit.id + '/videos').catch(function () { return { results: [] }; })
+      ]).then(function (rs) {
+        var detail = rs[0], videos = rs[1];
+        rec.tm = detail.vote_average || 0;
+        rec.tv = detail.vote_count || 0;
+        if (detail.backdrop_path && !rec.b) rec.b = 'https://image.tmdb.org/t/p/w1280' + detail.backdrop_path;
+        if (detail.poster_path && !rec.p) rec.p = 'https://image.tmdb.org/t/p/w500' + detail.poster_path;
+        var v = (videos.results || []).find(function (x) { return x.site === 'YouTube' && x.type === 'Trailer'; });
+        if (!v) v = (videos.results || []).find(function (x) { return x.site === 'YouTube'; });
+        if (v && !rec.yt) rec.yt = v.key;
+        return rec;
+      });
+    }).catch(function () { return null; });
+}
+function enrichWiki(rec) {
+  if (!rec.t) return Promise.resolve();
+  var title = rec.t.replace(/\(.*?\)/g, '').trim();
+  function tryTitle(tt) {
+    return wikiApi({ action: 'query', prop: 'extracts|pageimages', exintro: '1', explaintext: '1', exlimit: '1', redirects: '1', titles: tt })
+      .then(function (j) {
+        var pages = j && j.query && j.query.pages ? Object.values(j.query.pages) : [];
+        var p = pages[0];
+        if (!p || !p.extract) return false;
+        rec.we = p.extract.length > 800 ? p.extract.slice(0, 800) + '…' : p.extract;
+        rec.wl = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(p.title.replace(/ /g, '_'));
+        if (p.thumbnail && p.thumbnail.source) rec.wimg = p.thumbnail.source;
+        return true;
+      });
+  }
+  return tryTitle(title).then(function (ok) {
+    if (ok) return true;
+    return tryTitle(title + ' (' + (rec.tp === 's' ? 'TV series' : 'film') + ')').then(function (ok2) {
+      if (ok2) return true;
+      return tryTitle(title + ' (film)');
+    });
+  }).catch(function () { return false; });
+}
+function fetchLive(id) {
+  var out = { i: id, t: '', y: 0, tp: 'm', r: 0, v: 0, se: 0 };
+  var chain = omdb({ i: id, plot: 'full' }).then(function (j) {
+    if (j && j.Response !== 'False') Object.assign(out, mapOMDb(j));
+  }).catch(function () {});
+  return chain.then(function () { return enrichTMDB(out); })
+    .then(function () { return enrichWiki(out); })
+    .then(function () {
+      if (!out.t) return null;
+      REC_CACHE[id] = out;
+      idbPut('live:' + id, out);
+      return out;
+    });
+}
+
+/* resolve a record: cache -> crawled db -> fallback -> live */
+function resolveRecord(id) {
+  if (REC_CACHE[id]) return Promise.resolve(REC_CACHE[id]);
+  return idbGet('live:' + id).then(function (live) {
+    if (live && live.i) { REC_CACHE[id] = live; return live; }
+    return ensureDB().then(function () {
+      var local = DB.items.filter(function (x) { return x.i === id; })[0];
+      if (local) { REC_CACHE[id] = local; return local; }
+      var fb = FALLBACK.filter(function (x) { return x.i === id; })[0];
+      if (fb) { REC_CACHE[id] = fb; return fb; }
+      return fetchLive(id);
+    });
+  });
+}
+
+/* ================================================================
+   rendering helpers
+   ================================================================ */
+function esc(s) {
+  var d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+function posterHTML(p, cls, big) {
+  if (!p) return '<div class="ni">' + (big ? '&#127916;' : '&#127916;') + '</div>';
+  return '<img src="' + esc(p) + '" alt="" loading="lazy" onerror="this.parentElement.innerHTML=\'<div class=ni>&#127916;</div>\'">';
+}
+function typeLabel(tp) { return tp === 's' ? t('series') : t('movie'); }
+function yearOf(rec) { return rec.y ? String(rec.y) : ''; }
+
+function ratingsList(rec) {
+  var out = [];
+  if (rec.r && rec.r > 0) out.push({ k: 'imdb', src: 'IMDb', val: rec.r.toFixed(1), mx: '/10', pct: rec.r * 10 });
+  if (rec.rt && rec.rt > 0) out.push({ k: 'rt', src: 'Rotten Tomatoes', val: rec.rt + '%', mx: '', pct: rec.rt });
+  if (rec.mc && rec.mc > 0) out.push({ k: 'meta', src: 'Metacritic', val: rec.mc, mx: '/100', pct: rec.mc });
+  if (rec.tm && rec.tm > 0) out.push({ k: 'tmdb', src: 'TMDB', val: rec.tm.toFixed(1), mx: '/10', pct: rec.tm * 10 });
+  return out;
+}
+function verdictOf(rec) {
+  var w = [];
+  if (rec.r > 0) w.push({ s: rec.r * 10, w: 0.4 });
+  if (rec.rt > 0) w.push({ s: rec.rt, w: 0.25 });
+  if (rec.mc > 0) w.push({ s: rec.mc, w: 0.25 });
+  if (rec.tm > 0) w.push({ s: rec.tm * 10, w: 0.1 });
+  if (!w.length) return null;
+  var sw = 0, ws = 0;
+  w.forEach(function (x) { sw += x.s * x.w; ws += x.w; });
+  var avg = Math.round(sw / ws);
+  var key, stars;
+  if (avg >= 90) { key = 'masterpiece'; stars = '★★★★★'; }
+  else if (avg >= 80) { key = 'excellent'; stars = '★★★★★'; }
+  else if (avg >= 70) { key = 'veryGood'; stars = '★★★★☆'; }
+  else if (avg >= 60) { key = 'good'; stars = '★★★★☆'; }
+  else if (avg >= 50) { key = 'mixed'; stars = '★★★☆☆'; }
+  else { key = 'belowAvg'; stars = '★★☆☆☆'; }
+  return { avg: avg, label: t('v_' + key), desc: t('d_' + key), stars: stars };
+}
+function epColor(r) {
+  if (r >= 9) return '#1a7a3a'; if (r >= 8) return '#2ecc71'; if (r >= 7) return '#f1c40f';
+  if (r >= 6) return '#e67e22'; if (r >= 5) return '#e74c3c'; return '#8e44ad';
+}
+
+function deepLinks(rec) {
+  var h = '';
+  h += '<a class="lnk imdb" target="_blank" rel="noopener" href="https://www.imdb.com/title/' + esc(rec.i) + '/">&#127916; IMDb</a>';
+  h += '<a class="lnk lb" target="_blank" rel="noopener" href="https://letterboxd.com/imdb/' + esc(rec.i) + '/">Letterboxd</a>';
+  if (rec.tmid) h += '<a class="lnk tmdb" target="_blank" rel="noopener" href="https://www.themoviedb.org/' + (rec.tp === 's' ? 'tv' : 'movie') + '/' + rec.tmid + '">TMDB</a>';
+  else h += '<a class="lnk tmdb" target="_blank" rel="noopener" href="https://www.themoviedb.org/search?query=' + encodeURIComponent(rec.t) + '">TMDB</a>';
+  h += '<a class="lnk rt" target="_blank" rel="noopener" href="https://www.rottentomatoes.com/search?search=' + encodeURIComponent(rec.t) + '">Rotten Tomatoes</a>';
+  h += '<a class="lnk wiki" target="_blank" rel="noopener" href="' + esc(rec.wl || ('https://en.wikipedia.org/wiki/' + encodeURIComponent(rec.t.replace(/ /g, '_')))) + '">Wikipedia</a>';
+  h += '<button class="lnk dl" onclick="openDownload(\'' + esc(rec.i) + '\',event)">&#11015; ' + t('download') + '</button>';
+  h += '<button class="lnk share" onclick="shareTitle(\'' + esc(rec.i) + '\',event)">&#128279; ' + t('share') + '</button>';
+  return h;
+}
+
+/* ---------- download popup (links from the Cinema dataset) ---------- */
+var LINKS = null;
+function loadLinks() {
+  if (LINKS) return Promise.resolve(LINKS);
+  return idbGet('links').then(function (cached) {
+    if (cached && cached.items) { LINKS = cached; return LINKS; }
+    return fetch('public/links.json?v=' + Date.now()).then(function (r) {
+      if (!r.ok) throw new Error('links 404');
+      return r.json();
+    }).then(function (j) {
+      if (!j || !j.items) throw new Error('bad links');
+      LINKS = j;
+      idbPut('links', LINKS);
+      return LINKS;
+    }).catch(function () {
+      if (cached && cached.items) { LINKS = cached; return LINKS; }
+      LINKS = { items: [] };
+      return LINKS;
+    });
+  });
+}
+function getLinks(id) {
+  if (!LINKS || !LINKS.items) return null;
+  for (var i = 0; i < LINKS.items.length; i++) if (LINKS.items[i].i === id) return LINKS.items[i];
+  return null;
+}
+function openDownload(id, e) {
+  if (e) e.stopPropagation();
+  var title = currentTitle(id);
+  document.getElementById('dlTitle').textContent = title
+    ? esc(title) + ' — ' + t('downloadLinks')
+    : t('downloadLinks');
+  document.getElementById('dlBody').innerHTML = '<div class="dl-load"><span class="sp" style="width:20px;height:20px;border-width:2px"></span>' + t('loadingLinks') + '</div>';
+  document.getElementById('dlModal').hidden = false;
+  document.body.style.overflow = 'hidden';
+  loadLinks().then(function () {
+    var rec = getLinks(id);
+    document.getElementById('dlBody').innerHTML = rec ? renderDownloadHTML(rec) : '<div class="dl-empty">' + t('noLinks') + '</div>';
+  });
+}
+function closeDownload() {
+  document.getElementById('dlModal').hidden = true;
+  document.body.style.overflow = '';
+}
+function dlItem(x) {
+  return '<div class="dl-item"><span class="q">' + esc(x.q || '—') + '</span>' +
+    (x.s ? '<span class="sz">' + esc(x.s) + '</span>' : '') +
+    '<button class="dl-copy" title="' + t('copy') + '" onclick="copyDl(event,\'' + esc(x.u) + '\')">&#128203;</button>' +
+    '<a href="' + esc(x.u) + '" target="_blank" rel="noopener noreferrer">' + t('download') + ' &#11015;</a></div>';
+}
+function renderDownloadHTML(rec) {
+  var h = '';
+  if (rec.tp === 's' && rec.seasons && rec.seasons.length) {
+    var groups = {};
+    rec.seasons.forEach(function (s) {
+      var key = t('season') + ' ' + s.num + ' — ' + (s.sub === 'Dubbed' ? t('dubbed') : t('softSub'));
+      if (!groups[key]) groups[key] = [];
+      (s.links || []).forEach(function (x) { groups[key].push(x); });
+    });
+    Object.keys(groups).forEach(function (key) {
+      h += '<div class="dl-sec"><div class="dl-sec-t">' + esc(key) + '</div>';
+      groups[key].forEach(function (x) { h += dlItem(x); });
+      h += '</div>';
+    });
+  } else if (rec.l && rec.l.length) {
+    h += '<div class="dl-sec">';
+    rec.l.forEach(function (x) { h += dlItem(x); });
+    h += '</div>';
+  } else {
+    h = '<div class="dl-empty">' + t('noLinks') + '</div>';
+  }
+  return h;
+}
+function copyDl(e, url) {
+  e.stopPropagation();
+  e.preventDefault();
+  var done = function () { toast(t('copied'), 's'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url); done(); });
+  else fallbackCopy(url);
+}
+function shareTitle(id, e) {
+  if (e) e.stopPropagation();
+  var url = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + '#id=' + id;
+  var done = function () { toast(t('copied'), 's'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url); done(); });
+  else fallbackCopy(url);
+}
+function fallbackCopy(txt) {
+  var ta = document.createElement('textarea');
+  ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta);
+}
+function toast(msg, kind) {
+  var el = document.createElement('div');
+  el.className = 'tt tt-' + (kind || 'i');
+  el.textContent = msg;
+  document.getElementById('tc').appendChild(el);
+  setTimeout(function () { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(function () { el.remove(); }, 320); }, 2200);
+}
+
+/* ================================================================
+   search + suggestions
+   ================================================================ */
+var searchDeb = null;
+function onInput() {
+  var q = si.value.trim();
+  clearTimeout(searchDeb);
+  if (!q) { hideSugg(); return; }
+  searchDeb = setTimeout(function () { showSuggestions(q); }, 200);
+}
+function showSuggestions(q) {
+  var res = fuzzySearch(q, 8);
+  if (!res.length) { hideSugg(); return; }
+  SUGG = res; SUGG_ACT = -1;
+  var h = '';
+  res.forEach(function (ti, k) {
+    h += '<div class="sugg-item" data-k="' + k + '" onclick="pickSugg(' + k + ')">' +
+      '<span class="sugg-ph">' + (ti.p ? '<img src="' + esc(ti.p) + '" loading="lazy" onerror="this.parentElement.innerHTML=\'&#127916;\'">' : '&#127916;') + '</span>' +
+      '<span class="sugg-i"><span class="sugg-t">' + esc(ti.t) + '</span>' +
+      '<span class="sugg-m">' + (ti.y || '') + ' · ' + typeLabel(ti.tp) + '</span></span>' +
+      (ti.r ? '<span class="sugg-r">★ ' + ti.r.toFixed(1) + '</span>' : '') +
+      '</div>';
+  });
+  sugg.innerHTML = h;
+  sugg.hidden = false;
+}
+function pickSugg(k) {
+  var ti = SUGG[k];
+  hideSugg();
+  if (ti) openDetail(ti.i);
+}
+function hideSugg() { sugg.hidden = true; SUGG = []; SUGG_ACT = -1; }
+
+function fuzzySearch(q, limit) {
+  var scored = [];
+  for (var i = 0; i < TITLES.length; i++) {
+    var ti = TITLES[i];
+    var s = scoreFuzzy(q, ti.t);
+    if (s >= 0.3) scored.push({ ti: ti, s: s });
+  }
+  scored.sort(function (a, b) { return (b.s - a.s) || ((b.ti.v || 0) - (a.ti.v || 0)); });
+  return scored.slice(0, limit || 60).map(function (x) { return x.ti; });
+}
+
+function doSearch() {
+  var q = si.value.trim();
+  hideSugg();
+  if (!q) { showTrending(); return; }
+  var res = fuzzySearch(q, 60);
+  if (res.length) renderResults(res, q);
+  else liveSearch(q);
+}
+function liveSearch(q) {
+  showLoader(true);
+  var omdbP = omdb({ s: q, page: 1 }).then(function (j) {
+    if (j && j.Search) {
+      return j.Search.map(function (x) {
+        return { i: x.imdbID, t: x.Title, y: parseInt(x.Year, 10) || 0, tp: x.Type === 'series' ? 's' : 'm', r: 0, v: 0, p: x.Poster && x.Poster !== 'N/A' ? x.Poster : '' };
+      });
+    }
+    return [];
+  }).catch(function () { return []; });
+  var wikiP = wikiApi({ action: 'opensearch', search: q, limit: 8, namespace: 0 }).then(function (j) {
+    var out = [];
+    if (j && j[1]) j[1].forEach(function (title) {
+      out.push({ i: '', t: title, y: 0, tp: 'm', r: 0, v: 0, p: '', wiki: true });
+    });
+    return out;
+  }).catch(function () { return []; });
+  Promise.all([omdbP, wikiP]).then(function (rs) {
+    showLoader(false);
+    var all = rs[0].concat(rs[1]);
+    if (!all.length) { renderResults([], q); return; }
+    renderResults(all, q);
+  });
+}
+
+function renderResults(items, q) {
+  hideAll();
+  CURRENT = items;
+  CUR_VIEW = { kind: 'results' };
+  document.getElementById('rv').classList.add('show');
+  document.getElementById('rcnt').innerHTML = items.length
+    ? '<strong>' + items.length + '</strong> ' + t('results') + (q ? ' "' + esc(q) + '"' : '')
+    : t('noResults');
+  var g = document.getElementById('rg');
+  var h = '';
+  items.forEach(function (m, idx) {
+    var tp = m.tp === 's' ? 'Series' : 'Movie';
+    h += '<div class="rc" onclick="openFromList(' + idx + ')">' +
+      '<div class="rc-p">' + posterHTML(m.p) + '</div>' +
+      '<div class="rc-i">' +
+      '<div class="rc-t">' + esc(m.t) + '</div>' +
+      '<div class="rc-y">' + (m.y || '') + '</div>' +
+      '<div class="rc-b">' +
+      '<span class="cb cb-tp">' + typeLabel(m.tp) + '</span>' +
+      (m.r ? '<span class="cb cb-r">★ ' + m.r.toFixed(1) + '</span>' : '') +
+      '</div>' +
+      '<div class="rc-actions">' +
+      '<a class="mini-btn gold" target="_blank" rel="noopener" href="https://www.imdb.com/title/' + esc(m.i || '') + '/" onclick="event.stopPropagation()">IMDb</a>' +
+      (m.i ? '<button class="mini-btn" onclick="event.stopPropagation();openDetail(\'' + esc(m.i) + '\')">&#128269; ' + t('analyze') + '</button>' : '') +
+      (m.i ? '<button class="mini-btn" onclick="event.stopPropagation();openDownload(\'' + esc(m.i) + '\',event)">&#11015; ' + t('download') + '</button>' : '') +
+      (m.i ? '<button class="mini-btn" onclick="event.stopPropagation();markCompare(\'' + esc(m.i) + '\')">&#9878; ' + t('compare') + '</button>' : '') +
+      '</div></div></div>';
+  });
+  g.innerHTML = h;
+  if (!items.length) document.getElementById('noRes').classList.add('show');
+}
+function openFromList(idx) {
+  var m = CURRENT[idx];
+  if (!m) return;
+  if (m.wiki && !m.i) { liveWikiOpen(m.t); return; }
+  openDetail(m.i);
+}
+function liveWikiOpen(title) {
+  showLoader(true);
+  omdb({ t: title, plot: 'full' }).then(function (j) {
+    showLoader(false);
+    if (j && j.Response !== 'False' && j.imdbID) openDetail(j.imdbID);
+    else { document.getElementById('noRes').classList.add('show'); toast(t('notFound'), 'e'); }
+  }).catch(function () { showLoader(false); toast(t('liveErr'), 'e'); });
+}
+
+/* compare */
+function markCompare(id) {
+  if (!COMPARE_MODE) {
+    COMPARE_MODE = true; COMPARE_TARGET = id;
+    document.getElementById('cmpBanner').classList.add('show');
+    document.getElementById('cmpInfo').innerHTML = '&#9878; <b>' + esc(currentTitle(id)) + '</b> — ' + t('selectSecond');
+    document.getElementById('cmpGo').style.display = 'none';
+  } else if (COMPARE_TARGET && COMPARE_TARGET !== id) {
+    var a = COMPARE_TARGET, b = id;
+    COMPARE_MODE = false; COMPARE_TARGET = null;
+    document.getElementById('cmpBanner').classList.remove('show');
+    openCompare(a, b);
+  } else {
+    toast(t('selectSecond'), 'i');
+  }
+}
+function cancelCompare() {
+  COMPARE_MODE = false; COMPARE_TARGET = null;
+  document.getElementById('cmpBanner').classList.remove('show');
+}
+function currentTitle(id) {
+  for (var i = 0; i < TITLES.length; i++) if (TITLES[i].i === id) return TITLES[i].t;
+  var f = FALLBACK.filter(function (x) { return x.i === id; })[0];
+  return f ? f.t : id;
+}
+function openCompare(a, b) {
+  CUR_VIEW = { kind: 'compare', a: a, b: b };
+  showLoader(true);
+  Promise.all([resolveRecord(a), resolveRecord(b)]).then(function (rs) {
+    showLoader(false);
+    hideAll();
+    document.getElementById('dv').classList.add('show');
+    document.getElementById('dv').innerHTML = renderCompareHTML(rs[0], rs[1]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+function renderCompareHTML(a, b) {
+  var h = '<button class="bb" onclick="goBack()">' + t('back') + '</button>';
+  h += '<div class="cmp-g">';
+  [a, b].forEach(function (rec, idx) {
+    var vb = verdictOf(rec);
+    h += '<div class="cmp-col"><div class="ct">' + esc(rec.t) + ' <span style="color:var(--text3);font-size:.7rem">' + (rec.y || '') + '</span></div>';
+    h += '<div class="rtc-g">' + ratingsCards(rec) + '</div>';
+    if (vb) h += '<div class="vb" style="display:block;margin-bottom:12px"><div class="vlbl">' + esc(vb.label) + '</div><div class="vstars">' + vb.stars + '</div><div class="vsco">' + vb.avg + '%</div></div>';
+    h += '<div class="dl">' + deepLinks(rec) + '</div>';
+    var rows = [[t('director'), rec.dir], [t('writer'), rec.wr], [t('actors'), rec.ac && rec.ac.join(', ')], [t('genres'), rec.g], [t('runtime'), rec.rm ? rec.rm + ' ' + t('min') : ''], [t('awards'), rec.aw], [t('boxOffice'), rec.bo]];
+    rows.forEach(function (r) { if (r[1]) h += '<div class="ir" style="margin-bottom:6px"><span class="il">' + r[0] + '</span><span class="iv">' + esc(r[1]) + '</span></div>'; });
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+function ratingsCards(rec) {
+  var list = ratingsList(rec);
+  if (!list.length) return '<div style="font-size:.75rem;color:var(--text3);padding:10px 0">—</div>';
+  var h = '';
+  list.forEach(function (x) {
+    h += '<div class="rtc ' + x.k + '"><div class="rtc-src">' + esc(x.src) + '</div><div class="rtc-val">' + x.val + '</div><div class="rtc-max">' + x.mx + '</div><div class="rtc-bar"><div class="rtc-fill" data-w="' + x.pct + '%"></div></div></div>';
+  });
+  return h;
+}
+
+/* ================================================================
+   detail view
+   ================================================================ */
+function openDetail(id) {
+  CUR_VIEW = { kind: 'detail', id: id };
+  showLoader(true);
+  hideAll();
+  resolveRecord(id).then(function (rec) {
+    showLoader(false);
+    if (!rec) { document.getElementById('noRes').classList.add('show'); toast(t('notFound'), 'e'); return; }
+    renderDetail(rec);
+  }).catch(function () {
+    showLoader(false);
+    document.getElementById('noRes').classList.add('show');
+    toast(t('liveErr'), 'e');
+  });
+}
+function renderDetail(rec) {
+  hideAll();
+  document.getElementById('dv').classList.add('show');
+  var dv = document.getElementById('dv');
+  var vb = verdictOf(rec);
+  var h = '<button class="bb" onclick="goBack()">' + t('back') + '</button>';
+  h += '<div class="dh">';
+  h += '<div class="pw">' + posterHTML(rec.p, '', true) + '</div>';
+  h += '<div class="di">';
+  h += '<div class="dt">' + esc(rec.t) + '</div>';
+  h += '<div class="dmeta">';
+  h += '<span class="dmchip tp">' + typeLabel(rec.tp) + '</span>';
+  if (rec.y) h += '<span class="dmchip">' + rec.y + '</span>';
+  if (rec.rm) h += '<span class="dmchip">' + rec.rm + ' ' + t('min') + '</span>';
+  if (rec.g) h += '<span class="dmchip">' + esc(rec.g) + '</span>';
+  if (rec.tp === 's' && rec.se) h += '<span class="dmchip">' + rec.se + ' ' + t('seasons') + '</span>';
+  if (rec.v) h += '<span class="dmchip r">' + (rec.r ? '★ ' + rec.r.toFixed(1) + ' · ' : '') + formatVotes(rec.v) + ' ' + t('votes') + '</span>';
+  h += '</div>';
+  if (rec.pl) h += '<div class="desc">' + esc(rec.pl) + '</div>';
+  h += '</div></div>';
+
+  h += '<div class="rp" style="display:block"><div class="rtc-g">' + ratingsCards(rec) + '</div></div>';
+
+  if (vb) h += '<div class="vb" style="display:block"><div class="vlbl">' + esc(vb.label) + '</div><div class="vstars">' + vb.stars + '</div><div class="vdesc">' + esc(vb.desc) + '</div><div class="vsco">' + vb.avg + '%</div></div>';
+
+  h += '<div class="dl">' + deepLinks(rec) + '</div>';
+
+  /* info grid */
+  var rows = [
+    [t('director'), rec.dir], [t('writer'), rec.wr], [t('actors'), rec.ac && rec.ac.join(', ')],
+    [t('awards'), rec.aw], [t('boxOffice'), rec.bo], [t('language'), rec.lo],
+    [t('country'), rec.co], [t('production'), rec.pr], [t('votes'), rec.v ? formatVotes(rec.v) : '']
+  ].filter(function (r) { return r[1]; });
+  if (rows.length) {
+    h += '<div class="sec"><h3>&#128203; ' + t('plot') + '</h3><div class="ig">';
+    rows.forEach(function (r) { h += '<div class="ir"><span class="il">' + r[0] + '</span><span class="iv">' + esc(r[1]) + '</span></div>'; });
+    h += '</div></div>';
+  }
+
+  /* interesting: wikipedia + keywords + trailer */
+  var interesting = '';
+  if (rec.we) {
+    interesting += '<div class="wikibox">' +
+      (rec.wimg ? '<img src="' + esc(rec.wimg) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
+      '<div class="wiki-txt"><span class="wimg-src">Wikipedia</span>' + esc(rec.we) +
+      ' <a href="' + esc(rec.wl) + '" target="_blank" rel="noopener">' + t('wikiMore') + ' &#8599;</a></div></div>';
+  }
+  if (rec.yt) {
+    interesting += '<div style="margin-top:12px"><div class="trailer"><iframe src="https://www.youtube-nocookie.com/embed/' + esc(rec.yt) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div></div>';
+  }
+  if (interesting) h += '<div class="sec"><h3>&#128161; ' + t('interesting') + '</h3>' + interesting + '</div>';
+
+  /* series episodes */
+  if (rec.tp === 's') {
+    h += '<div class="sec" id="epSec"><h3>&#127909; ' + t('epRatings') + '</h3>';
+    if (rec.ep) h += renderEpisodesHTML(rec.ep);
+    else if (rec.se) {
+      h += '<div class="ep-sel">';
+      for (var s = 1; s <= Math.min(rec.se, 25); s++) h += '<button class="eps-b" data-s="' + s + '">S' + s + '</button>';
+      h += '</div><div id="epGrid" style="font-size:.72rem;color:var(--text3)">' + t('loadEp') + '</div>';
+    } else {
+      h += '<div style="font-size:.72rem;color:var(--text3)">' + t('noEp') + '</div>';
+    }
+    h += '</div>';
+  }
+
+  dv.innerHTML = h;
+  dv.querySelectorAll('.rtc-fill').forEach(function (f) {
+    setTimeout(function () { f.style.width = f.dataset.w; }, 80);
+  });
+
+  /* bind episode season buttons */
+  if (rec.tp === 's' && !rec.ep && rec.se) {
+    dv.querySelectorAll('.eps-b').forEach(function (b) {
+      b.addEventListener('click', function () {
+        dv.querySelectorAll('.eps-b').forEach(function (x) { x.classList.remove('act'); });
+        b.classList.add('act');
+        loadSeason(rec.i, parseInt(b.dataset.s, 10), rec);
+      });
+    });
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function formatVotes(v) {
+  if (v >= 1000000) return (v / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return String(v);
+}
+function renderEpisodesHTML(ep) {
+  var h = '';
+  Object.keys(ep).forEach(function (sn) {
+    var eps = ep[sn];
+    var sum = 0; eps.forEach(function (e) { sum += e.r; });
+    var avg = (sum / eps.length).toFixed(1);
+    h += '<div class="ep-season-title">' + sn + ' <span class="ep-avg" style="background:' + epColor(parseFloat(avg)) + '">' + avg + '</span></div><div class="ep-grid">';
+    eps.forEach(function (e) {
+      h += '<div class="ep-box" style="background:' + epColor(e.r) + '" title="E' + e.e + ': ' + e.r + '"><span class="ep-num">E' + e.e + '</span>' + e.r + '</div>';
+    });
+    h += '</div>';
+  });
+  return h;
+}
+function loadSeason(id, n, rec) {
+  var grid = document.getElementById('epGrid');
+  if (!grid) return;
+  grid.innerHTML = '<span class="sp" style="width:18px;height:18px;border-width:2px"></span>';
+  idbGet('eps:' + id + ':' + n).then(function (cached) {
+    var skey = 'S' + n;
+    if (cached) { var m1 = {}; m1[skey] = cached; grid.innerHTML = renderEpisodesHTML(m1); return; }
+    return omdb({ i: id, Season: n }).then(function (j) {
+      if (!j || j.Response === 'False' || !j.Episodes) { grid.innerHTML = t('noEp'); return; }
+      var eps = j.Episodes.map(function (x) {
+        var r = parseFloat(x.imdbRating);
+        return { e: parseInt(x.Episode, 10) || 0, r: isNaN(r) ? 0 : r };
+      }).filter(function (x) { return x.r > 0; });
+      if (!eps.length) { grid.innerHTML = t('noEp'); return; }
+      idbPut('eps:' + id + ':' + n, eps);
+      var m2 = {}; m2[skey] = eps;
+      grid.innerHTML = renderEpisodesHTML(m2);
+    }).catch(function () { grid.innerHTML = t('noEp'); });
+  });
+}
+
+/* ================================================================
+   trending / views
+   ================================================================ */
+function renderTrending() {
+  var byV = TITLES.slice().sort(function (a, b) { return (b.v || 0) - (a.v || 0); });
+  var top = byV.slice(0, 24);
+  if (!top.length) { document.getElementById('tg').style.display = 'none'; return; }
+  document.getElementById('tg').style.display = 'block';
+  document.getElementById('tgSub').textContent = t('movies') + ' & ' + t('series');
+  var h = '';
+  top.forEach(function (m) {
+    h += '<div class="tc" onclick="openDetail(\'' + esc(m.i) + '\')">' +
+      '<div class="tc-p">' + posterHTML(m.p) + '</div>' +
+      '<div class="tc-i"><div class="tc-t">' + esc(m.t) + '</div>' +
+      '<div class="tc-y">' + (m.y || '') + '</div>' +
+      (m.r ? '<div class="tc-r">★ ' + m.r.toFixed(1) + '</div>' : '') +
+      '<div class="tc-tp">' + typeLabel(m.tp) + '</div></div></div>';
+  });
+  document.getElementById('tgg').innerHTML = h;
+}
+function showTrending() {
+  hideAll();
+  CUR_VIEW = { kind: 'trending' };
+  document.getElementById('tg').style.display = 'block';
+}
+function hideAll() {
+  document.getElementById('rv').classList.remove('show');
+  document.getElementById('dv').classList.remove('show');
+  document.getElementById('noRes').classList.remove('show');
+  document.getElementById('tg').style.display = 'none';
+  hideSugg();
+}
+function goBack() {
+  CUR_VIEW = null;
+  hideAll();
+  document.getElementById('rv').classList.add('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function showLoader(s) { document.getElementById('loader').classList.toggle('show', s); }
+
+/* ================================================================
+   i18n + theme
+   ================================================================ */
+function reRenderView() {
+  if (!CUR_VIEW) return;
+  if (CUR_VIEW.kind === 'detail') {
+    var rec = REC_CACHE[CUR_VIEW.id];
+    if (rec) renderDetail(rec); else openDetail(CUR_VIEW.id);
+  } else if (CUR_VIEW.kind === 'compare') {
+    var a = REC_CACHE[CUR_VIEW.a], b = REC_CACHE[CUR_VIEW.b];
+    if (a && b) { hideAll(); document.getElementById('dv').classList.add('show'); document.getElementById('dv').innerHTML = renderCompareHTML(a, b); }
+  } else if (CUR_VIEW.kind === 'results') {
+    renderResults(CURRENT);
+  } else if (CUR_VIEW.kind === 'trending') {
+    renderTrending(); showTrending();
+  }
+}
+function setLang(l, init) {
+  LANG = l;
+  if (!init) LS.set('cs_lang', l);
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === 'fa' ? 'rtl' : 'ltr';
+  document.getElementById('langBtn').textContent = l === 'fa' ? 'English' : 'فارسی';
+  document.getElementById('si').placeholder = t('searchPh');
+  document.getElementById('loaderText').textContent = t('loading');
+  document.title = l === 'fa' ? 'سینما اسکور — تحلیل فیلم و سریال' : 'CineScore — Movie & Series Analyzer';
+  document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.getAttribute('data-i18n')); });
+  if (!init) reRenderView();
+}
+function toggleTheme() {
+  var h = document.documentElement;
+  h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark';
+  LS.set('cs_theme', h.dataset.theme);
+  updateThemeBtn();
+}
+function updateThemeBtn() {
+  var dark = document.documentElement.dataset.theme !== 'light';
+  ['themeBtn', 'themeBtnF'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = dark ? '🌙' : '☀️';
+  });
+}
+
+/* ================================================================
+   URL params (#id= / #q= / ?id= / ?q= / #lang=) — Cinema app compat
+   ================================================================ */
+function handleParams() {
+  // merge query string AND hash params (Cinema app links use #id=, tests may use ?v=#id=)
+  var p = new URLSearchParams();
+  [location.search, location.hash].forEach(function (seg) {
+    if (!seg) return;
+    try { new URLSearchParams(seg.replace(/^[?#]/, '')).forEach(function (v, k) { p.set(k, v); }); } catch (e) {}
+  });
+  if (!p.toString()) return;
+  var lang = p.get('lang');
+  if (lang === 'fa' || lang === 'en') { LANG = lang; LS.set('cs_lang', lang); setLang(lang, true); }
+  var id = p.get('id');
+  if (id) { openDetail(id); return; }
+  var q = p.get('q');
+  if (q) { si.value = q; doSearch(); }
+}
+
+/* ================================================================
+   events + init
+   ================================================================ */
+function bindEvents() {
+  si.addEventListener('input', onInput);
+  si.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { doSearch(); }
+    else if (e.key === 'ArrowDown') { if (SUGG.length) { SUGG_ACT = (SUGG_ACT + 1) % SUGG.length; paintSugg(); } }
+    else if (e.key === 'ArrowUp') { if (SUGG.length) { SUGG_ACT = (SUGG_ACT - 1 + SUGG.length) % SUGG.length; paintSugg(); } }
+    else if (e.key === 'Escape') { hideSugg(); closeDownload(); }
+  });
+  document.getElementById('sBtn').addEventListener('click', doSearch);
+  document.getElementById('langBtn').addEventListener('click', function () { setLang(LANG === 'fa' ? 'en' : 'fa'); });
+  ['themeBtn', 'themeBtnF'].forEach(function (id) { document.getElementById(id).addEventListener('click', toggleTheme); });
+  document.getElementById('cmpCancel').addEventListener('click', cancelCompare);
+  document.getElementById('cmpGo').addEventListener('click', function () { if (COMPARE_TARGET) { var a = COMPARE_TARGET; COMPARE_TARGET = null; COMPARE_MODE = false; document.getElementById('cmpBanner').classList.remove('show'); var b = CURRENT[0]; if (b) openCompare(a, b.i); } });
+  document.getElementById('dlClose').addEventListener('click', closeDownload);
+  document.getElementById('dlModal').addEventListener('click', function (e) { if (e.target === this) closeDownload(); });
+  document.querySelectorAll('#tf .tb').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#tf .tb').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CUR_TP = b.dataset.tp;
+      if (CUR_TP) renderResults(CURRENT.filter(function (x) { return x.tp === CUR_TP; }));
+      else if (CURRENT.length) renderResults(CURRENT);
+    });
+  });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.sw')) hideSugg(); });
+}
+function paintSugg() {
+  sugg.querySelectorAll('.sugg-item').forEach(function (el, k) { el.classList.toggle('act', k === SUGG_ACT); });
+  if (SUGG_ACT >= 0 && sugg.querySelectorAll('.sugg-item')[SUGG_ACT]) sugg.querySelectorAll('.sugg-item')[SUGG_ACT].scrollIntoView({ block: 'nearest' });
+}
+
+(function init() {
+  var theme = LS.get('cs_theme');
+  document.documentElement.dataset.theme = theme || 'dark';
+  updateThemeBtn();
+  var lang = LS.get('cs_lang') || 'en';
+  setLang(lang, true);
+  bindEvents();
+  loadTitles().then(function () {
+    renderTrending();
+    handleParams();
+    if (!location.search && !location.hash) showTrending();
+  });
+})();
+</script>
+</body>
+</html>

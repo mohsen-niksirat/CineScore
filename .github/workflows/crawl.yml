@@ -1,0 +1,35 @@
+name: Crawl Movie Data
+
+on:
+  schedule:
+    - cron: '30 1 * * *'  # 01:30 UTC nightly
+  workflow_dispatch:      # manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run crawler
+        run: node scripts/crawl.js
+        env:
+          OMDB_KEY: ${{ secrets.OMDB_KEY }}
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+          OMDB_BUDGET: '800'
+          WIKI_BUDGET: '2000'
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/db.json public/titles.json public/crawl_state.json
+          git diff --cached --quiet || git commit -m "chore: update movie database $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
