@@ -227,34 +227,51 @@ async function omdbEnrich(rec) {
   return false; // all keys rejected
 }
 // ------------------------------------------------------------------ Wikipedia
-async function wikiEnrich(rec) {
-  const title = rec.t.replace(/\(.*?\)/g, '').trim();
-  const tryTitle = async (t) => {
-    const j = await fetchJSON(
-      `https://en.wikipedia.org/w/api.php?action=query&prop=extracts%7Cpageimages&exintro&explaintext&exlimit=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(t)}`,
-      1
-    );
-    const pages = j && j.query && j.query.pages ? Object.values(j.query.pages) : [];
-    const p = pages[0];
-    if (!p || !p.extract) return null;
-    return {
-      we: p.extract.length > 800 ? p.extract.slice(0, 800) + '…' : p.extract,
-      wl: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`,
-      wimg: p.thumbnail && p.thumbnail.source ? p.thumbnail.source : ''
-    };
+// Fetch a short extract from a Wikipedia language wiki.
+async function wikiExtract(lang, t) {
+  const j = await fetchJSON(
+    `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts%7Cpageimages&exintro&explaintext&exlimit=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(t)}`,
+    1
+  );
+  const pages = j && j.query && j.query.pages ? Object.values(j.query.pages) : [];
+  const p = pages[0];
+  if (!p || !p.extract) return null;
+  return {
+    we: p.extract.length > 800 ? p.extract.slice(0, 800) + '…' : p.extract,
+    wl: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, '_'))}`,
+    wimg: p.thumbnail && p.thumbnail.source ? p.thumbnail.source : ''
   };
-  let r = await tryTitle(title);
-  if (!r && rec.y) r = await tryTitle(`${title} (${rec.tp === 's' ? 'TV series' : 'film'})`);
-  if (!r) r = await tryTitle(`${title} (film)`);
+}
+
+// Persian first, English as fallback.
+async function wikiEnrich(rec) {
+  const title = rec.t.replace(/(.*?)/g, '').trim();
+  const tryTitle = async (lang, t) => {
+    try { return await wikiExtract(lang, t); } catch { return null; }
+  };
+  let r = await tryTitle('fa', title);
+  if (!r && rec.y) r = await tryTitle('fa', `${title} (${rec.tp === 's' ? 'مجموعه تلویزیونی' : 'فیلم'})`);
+  if (!r) r = await tryTitle('fa', `${title} (فیلم)`);
   if (r) {
     rec.we = r.we;
     rec.wl = r.wl;
+    rec.wlng = 'fa';
+    if (r.wimg) rec.wimg = r.wimg;
+    return true;
+  }
+  // English fallback
+  r = await tryTitle('en', title);
+  if (!r && rec.y) r = await tryTitle('en', `${title} (${rec.tp === 's' ? 'TV series' : 'film'})`);
+  if (!r) r = await tryTitle('en', `${title} (film)`);
+  if (r) {
+    rec.we = r.we;
+    rec.wl = r.wl;
+    rec.wlng = 'en';
     if (r.wimg) rec.wimg = r.wimg;
     return true;
   }
   return false;
 }
-
 // ------------------------------------------------------------------ state
 function loadJSON(file, fallback) {
   try {

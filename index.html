@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CineScore — Movie & Series Analyzer</title>
 <meta name="description" content="Compare IMDb, Rotten Tomatoes, Metacritic & TMDB scores for movies and series. Fuzzy search, live data, one single file.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#08080f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="سینما اسکور">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -177,6 +186,21 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;pa
 .ep-sel{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .eps-b{padding:5px 14px;border:1px solid var(--border);background:var(--glass);color:var(--text2);font:inherit;font-size:.68rem;font-weight:700;border-radius:14px;cursor:pointer;transition:.15s}
 .eps-b:hover,.eps-b.act{background:rgba(229,9,20,.12);color:var(--accent);border-color:var(--accent)}
+/* score table (tabular ratings for movies & series) */
+.st-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--card)}
+.st{width:100%;border-collapse:collapse;font-size:.78rem;min-width:420px}
+.st th{font-size:.62rem;font-weight:800;letter-spacing:.5px;color:var(--text3);text-align:right;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--card2);white-space:nowrap}
+.st td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.st tr:last-child td{border-bottom:none}
+.st td.st-src{font-weight:800;white-space:nowrap;color:var(--text2)}
+.st td.st-src.imdb{color:var(--imdb)}.st td.st-src.rt{color:var(--rt)}.st td.st-src.meta{color:var(--meta)}.st td.st-src.tmdb{color:var(--tmdb)}
+.st td.st-val{font-weight:900;font-size:.9rem;white-space:nowrap;text-align:left}
+.st td.st-bar-t{width:42%}
+.st-bar{height:7px;background:var(--bg2);border-radius:5px;overflow:hidden;min-width:90px}
+.st-fill{height:100%;width:0;border-radius:5px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.st td.st-bar-t.imdb .st-fill{background:var(--imdb)}.st td.st-bar-t.rt .st-fill{background:var(--rt)}
+.st td.st-bar-t.meta .st-fill{background:var(--meta)}.st td.st-bar-t.tmdb .st-fill{background:var(--tmdb)}
+.st td.st-pct{font-size:.66rem;color:var(--text3);text-align:left;white-space:nowrap}
 .ep-season-title{font-size:.72rem;font-weight:800;color:var(--text2);margin:10px 0 6px;display:flex;align-items:center;gap:8px}
 .ep-avg{padding:1px 8px;border-radius:8px;font-size:.62rem;color:#fff;font-weight:800}
 .ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:5px}
@@ -252,6 +276,44 @@ footer a:hover{color:var(--accent)}
 .theme-btn{position:fixed;bottom:16px;inset-inline-end:16px;width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--text);font-size:1rem;cursor:pointer;transition:.3s;z-index:100;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 .theme-btn:hover{border-color:var(--accent);transform:scale(1.1)}
 [dir="rtl"] .rc-actions,[dir="rtl"] .dl{justify-content:flex-start}
+/* ---- PWA install banner ---- */
+.install-banner{position:fixed;bottom:14px;left:14px;right:14px;z-index:9998;max-width:560px;margin:0 auto;background:linear-gradient(135deg,#1c1c36 0%,#141428 100%);border:1px solid rgba(229,9,20,.45);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;transform:translateY(140%);opacity:0;transition:transform .45s cubic-bezier(.2,.9,.3,1.2),opacity .3s ease;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.install-banner.show{transform:translateY(0);opacity:1}
+.install-banner .ib-icon{width:52px;height:52px;border-radius:13px;flex-shrink:0;object-fit:cover;box-shadow:0 4px 14px rgba(229,9,20,.35)}
+.install-banner .ib-text{flex:1;min-width:0}
+.install-banner .ib-title{font-size:.88rem;font-weight:800;color:#fff}
+.install-banner .ib-desc{font-size:.7rem;color:rgba(255,255,255,.65);margin-top:3px;line-height:1.6}
+.install-banner .ib-desc b{color:#f5c518}
+.install-banner .ib-btns{display:flex;gap:8px;flex-shrink:0}
+.install-banner .ib-btn{padding:9px 18px;border:none;border-radius:10px;font-family:var(--font);font-size:.75rem;font-weight:800;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px}
+.install-banner .ib-install{background:linear-gradient(135deg,#e50914,#b20710);color:#fff;box-shadow:0 4px 14px rgba(229,9,20,.4)}
+.install-banner .ib-install:hover{filter:brightness(1.2);transform:translateY(-1px)}
+.install-banner .ib-close{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7)}
+.install-banner .ib-close:hover{background:rgba(255,255,255,.16);color:#fff}
+@media(max-width:480px){.install-banner{flex-wrap:wrap;gap:10px}.install-banner .ib-btns{width:100%;justify-content:flex-end}}
+/* ---- PWA update banner ---- */
+.update-banner{position:fixed;top:14px;left:14px;right:14px;z-index:9998;max-width:560px;margin:0 auto;background:linear-gradient(135deg,#12241a 0%,#0d1a12 100%);border:1px solid rgba(70,211,105,.55);border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;transform:translateY(-140%);opacity:0;transition:transform .45s cubic-bezier(.2,.9,.3,1.2),opacity .3s ease;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+.update-banner.show{transform:translateY(0);opacity:1}
+.update-banner .ub-icon{font-size:1.7rem;flex-shrink:0}
+.update-banner .ub-text{flex:1;min-width:0}
+.update-banner .ub-title{font-size:.88rem;font-weight:800;color:#fff}
+.update-banner .ub-desc{font-size:.7rem;color:rgba(255,255,255,.65);margin-top:3px;line-height:1.6}
+.update-banner .ub-btns{display:flex;gap:8px;flex-shrink:0}
+.update-banner .ub-btn{padding:9px 16px;border:none;border-radius:10px;font-family:var(--font);font-size:.75rem;font-weight:800;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px}
+.update-banner .ub-apply{background:linear-gradient(135deg,#46d369,#2ea84f);color:#0d0d0d;box-shadow:0 4px 14px rgba(70,211,105,.35)}
+.update-banner .ub-apply:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.update-banner .ub-close{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7)}
+.update-banner .ub-close:hover{background:rgba(255,255,255,.16);color:#fff}
+@media(max-width:480px){.update-banner{flex-wrap:wrap;gap:10px}.update-banner .ub-btns{width:100%;justify-content:flex-end}}
+/* ---- iOS install help ---- */
+.ios-help{position:fixed;inset:0;z-index:10000;background:rgba(5,5,10,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.ios-help.show{opacity:1;pointer-events:auto}
+.ios-help-box{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.ios-help-ic{font-size:2.6rem;margin-bottom:10px}
+.ios-help-title{font-size:1.05rem;font-weight:900;color:#fff;margin-bottom:16px}
+.ios-help-steps{text-align:right;margin-bottom:18px}
+.ios-help-step{font-size:.82rem;color:var(--text2);line-height:2;padding:6px 10px;background:rgba(255,255,255,.04);border-radius:10px;margin-bottom:8px}
+.ios-help-step b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -357,6 +419,8 @@ var I18N = {
     director: 'Director', writer: 'Writer', actors: 'Actors', plot: 'Plot',
     awards: 'Awards', boxOffice: 'Box Office', language: 'Language', country: 'Country',
     production: 'Production', runtime: 'Runtime', votes: 'IMDb votes', genres: 'Genres',
+    source: 'Source', score: 'Score', progress: 'Rating',
+    scoreTable: 'Score comparison',
     type: 'Type', movie: 'Movie', series: 'Series', seasons: 'Seasons',
     year: 'Year', min: 'min',
     verdict: 'Overall Verdict',
@@ -388,6 +452,8 @@ var I18N = {
     director: 'کارگردان', writer: 'نویسنده', actors: 'بازیگران', plot: 'خلاصه داستان',
     awards: 'جوایز', boxOffice: 'گیشه', language: 'زبان', country: 'کشور',
     production: 'تولید', runtime: 'مدت زمان', votes: 'رأی IMDb', genres: 'ژانر',
+    source: 'منبع', score: 'امتیاز', progress: 'میزان',
+    scoreTable: 'جدول مقایسه امتیازها',
     type: 'نوع', movie: 'فیلم', series: 'سریال', seasons: 'فصل‌ها',
     year: 'سال', min: 'دقیقه',
     verdict: 'حکم کلی',
@@ -1106,6 +1172,21 @@ function ratingsCards(rec) {
   return h;
 }
 
+function scoreTableHTML(rec) {
+  var list = ratingsList(rec);
+  if (!list.length) return '';
+  var h = '<div class="st-wrap"><table class="st"><thead><tr><th>' + t('source') + '</th><th>' + t('score') + '</th><th></th><th>' + t('progress') + '</th></tr></thead><tbody>';
+  list.forEach(function (x) {
+    h += '<tr>' +
+      '<td class="st-src ' + x.k + '">' + esc(x.src) + '</td>' +
+      '<td class="st-val">' + x.val + '<span style="font-size:.6rem;color:var(--text3);font-weight:600">' + esc(x.mx) + '</span></td>' +
+      '<td class="st-bar-t ' + x.k + '"><div class="st-bar"><div class="st-fill" data-w="' + x.pct + '%"></div></div></td>' +
+      '<td class="st-pct">' + Math.round(x.pct) + '%</td>' +
+    '</tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
 /* ================================================================
    detail view
    ================================================================ */
@@ -1146,6 +1227,9 @@ function renderDetail(rec) {
 
   h += '<div class="rp" style="display:block"><div class="rtc-g">' + ratingsCards(rec) + '</div></div>';
 
+  var st = scoreTableHTML(rec);
+  if (st) h += '<div class="sec"><h3>&#128202; ' + t('scoreTable') + '</h3>' + st + '</div>';
+
   if (vb) h += '<div class="vb" style="display:block"><div class="vlbl">' + esc(vb.label) + '</div><div class="vstars">' + vb.stars + '</div><div class="vdesc">' + esc(vb.desc) + '</div><div class="vsco">' + vb.avg + '%</div></div>';
 
   h += '<div class="dl">' + deepLinks(rec) + '</div>';
@@ -1167,7 +1251,7 @@ function renderDetail(rec) {
   if (rec.we) {
     interesting += '<div class="wikibox">' +
       (rec.wimg ? '<img src="' + esc(rec.wimg) + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') +
-      '<div class="wiki-txt"><span class="wimg-src">Wikipedia</span>' + esc(rec.we) +
+      '<div class="wiki-txt"><span class="wimg-src">' + (rec.wlng === 'fa' ? 'ویکی‌پدیا فارسی' : 'Wikipedia') + '</span>' + esc(rec.we) +
       ' <a href="' + esc(rec.wl) + '" target="_blank" rel="noopener">' + t('wikiMore') + ' &#8599;</a></div></div>';
   }
   if (rec.yt) {
@@ -1190,7 +1274,7 @@ function renderDetail(rec) {
   }
 
   dv.innerHTML = h;
-  dv.querySelectorAll('.rtc-fill').forEach(function (f) {
+  dv.querySelectorAll('.rtc-fill, .st-fill').forEach(function (f) {
     setTimeout(function () { f.style.width = f.dataset.w; }, 80);
   });
 
@@ -1401,6 +1485,130 @@ function paintSugg() {
     if (!location.search && !location.hash) showTrending();
   });
 })();
+</script>
+<!-- PWA Install Banner -->
+<div class="install-banner" id="installBanner">
+  <img class="ib-icon" src="icons/icon-192.png" alt="سینما اسکور" width="52" height="52">
+  <div class="ib-text">
+    <div class="ib-title">نصب برنامه سینما اسکور</div>
+    <div class="ib-desc" id="ibDesc">دسترسی سریع با یک لمس — <b>آفلاین هم کار می‌کند</b></div>
+  </div>
+  <div class="ib-btns">
+    <button type="button" class="ib-btn ib-install" id="installBtn">⬇ نصب</button>
+    <button type="button" class="ib-btn ib-close" id="installClose">بعداً</button>
+  </div>
+</div>
+
+<!-- PWA Update Banner -->
+<div class="update-banner" id="updateBanner">
+  <div class="ub-icon">🆕</div>
+  <div class="ub-text">
+    <div class="ub-title">نسخه جدید موجود است!</div>
+    <div class="ub-desc">برای دریافت آخرین امکانات، صفحه را به‌روزرسانی کنید</div>
+  </div>
+  <div class="ub-btns">
+    <button type="button" class="ub-btn ub-apply" id="updateApply">🔄 به‌روزرسانی</button>
+    <button type="button" class="ub-btn ub-close" id="updateClose">بعداً</button>
+  </div>
+</div>
+
+<!-- iOS install help modal -->
+<div class="ios-help" id="iosHelp">
+  <div class="ios-help-box">
+    <div class="ios-help-ic">📲</div>
+    <div class="ios-help-title">افزودن به صفحه اصلی</div>
+    <div class="ios-help-steps">
+      <div class="ios-help-step">1️⃣ دکمه <b>اشتراک‌گذاری</b> را در نوار پایین مرورگر بزنید</div>
+      <div class="ios-help-step">2️⃣ گزینه <b>Add to Home Screen</b> را انتخاب کنید</div>
+      <div class="ios-help-step">3️⃣ سپس <b>Add</b> را بزنید — تمام! 🎉</div>
+    </div>
+    <button type="button" class="ib-btn ib-install" id="iosHelpClose">باشه، فهمیدم</button>
+  </div>
+</div>
+<script>
+// ===== PWA Install =====
+let deferredPrompt = null;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  maybeShowInstallBanner();
+});
+
+function isInstalledApp() { try { return isStandalone || (localStorage.getItem('cinescoreInstalled') === '1'); } catch (e) { return isStandalone; } }
+
+function maybeShowInstallBanner() {
+  const banner = document.getElementById('installBanner');
+  if (!banner) return;
+  if (isInstalledApp()) return;
+  if (sessionStorage.getItem('installDismissed') === '1') return;
+  if (isIOS) {
+    document.getElementById('ibDesc').innerHTML = 'افزودن به صفحه اصلی — <b>آفلاین هم کار می‌کند</b>';
+    document.getElementById('installBtn').textContent = 'راهنما';
+  }
+  setTimeout(() => banner.classList.add('show'), 1500);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const banner = document.getElementById('installBanner');
+  const installBtn = document.getElementById('installBtn');
+  const closeBtn = document.getElementById('installClose');
+  const iosHelp = document.getElementById('iosHelp');
+  if (!banner) return;
+  if (!deferredPrompt) maybeShowInstallBanner();
+  if (installBtn) installBtn.addEventListener('click', async () => {
+    if (isIOS) { if (iosHelp) iosHelp.classList.add('show'); return; }
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') { banner.classList.remove('show'); try { localStorage.setItem('cinescoreInstalled', '1'); } catch (e) {} }
+      deferredPrompt = null;
+    }
+  });
+  if (closeBtn) closeBtn.addEventListener('click', () => { banner.classList.remove('show'); sessionStorage.setItem('installDismissed', '1'); });
+  if (iosHelp) {
+    document.getElementById('iosHelpClose').addEventListener('click', () => iosHelp.classList.remove('show'));
+    iosHelp.addEventListener('click', e => { if (e.target === iosHelp) iosHelp.classList.remove('show'); });
+  }
+  window.addEventListener('appinstalled', () => { banner.classList.remove('show'); try { localStorage.setItem('cinescoreInstalled', '1'); } catch (e) {} });
+});
+
+// ===== Service Worker registration + update banner =====
+if ('serviceWorker' in navigator) {
+  let swReg = null;
+  let updateShown = false;
+  function showUpdateBanner() {
+    const b = document.getElementById('updateBanner');
+    if (!b || updateShown) return;
+    updateShown = true;
+    b.classList.add('show');
+  }
+  function hideUpdateBanner() { const b = document.getElementById('updateBanner'); if (b) b.classList.remove('show'); }
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'NEW_VERSION') showUpdateBanner(); });
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    swReg = reg;
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner();
+      });
+    });
+  }).catch(e => console.log('SW error:', e));
+  navigator.serviceWorker.addEventListener('controllerchange', () => { hideUpdateBanner(); window.location.reload(); });
+  document.addEventListener('DOMContentLoaded', () => {
+    const apply = document.getElementById('updateApply');
+    const close = document.getElementById('updateClose');
+    if (apply) apply.addEventListener('click', () => {
+      const w = swReg && (swReg.waiting || swReg.installing);
+      if (w) { w.postMessage({ type: 'SKIP_WAITING' }); }
+      else { hideUpdateBanner(); window.location.reload(); }
+    });
+    if (close) close.addEventListener('click', () => { hideUpdateBanner(); try { sessionStorage.setItem('updateDismissed', '1'); } catch (e) {} });
+  });
+}
 </script>
 </body>
 </html>

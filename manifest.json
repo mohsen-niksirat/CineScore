@@ -1,0 +1,25 @@
+{
+  "name": "سینما اسکور",
+  "short_name": "سینما اسکور",
+  "description": "مقایسه امتیازهای IMDb، Rotten Tomatoes، Metacritic و TMDB برای فیلم و سریال — با جستجوی هوشمند و داده زنده",
+  "id": "/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#08080f",
+  "theme_color": "#08080f",
+  "lang": "fa",
+  "dir": "rtl",
+  "categories": ["entertainment", "movies"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "جستجو", "short_name": "جستجو", "url": "./?q=", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "محبوب‌ترین‌ها", "short_name": "محبوب", "url": "./", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
