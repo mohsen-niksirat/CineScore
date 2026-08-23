@@ -191,7 +191,11 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;pa
 .modal-x:hover{color:var(--accent);border-color:var(--accent)}
 .modal-b{padding:16px 18px;overflow-y:auto}
 .dl-sec{margin-bottom:14px}
-.dl-sec-t{font-size:.72rem;font-weight:800;color:var(--text2);margin-bottom:8px}
+.dl-sec-t{font-size:.72rem;font-weight:800;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.dl-chip{display:inline-block;padding:1px 9px;border-radius:10px;font-size:.58rem;font-weight:800;color:#fff}
+.dl-chip.sub{background:var(--blue)}
+.dl-chip.dub{background:#e50914}
+.dl-chip.nosub{background:var(--text3)}
 .dl-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--card2);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;transition:.15s;flex-wrap:wrap}
 .dl-item:hover{border-color:var(--accent)}
 .dl-item .q{font-size:.7rem;font-weight:800;color:var(--blue);min-width:0;flex:1}
@@ -229,7 +233,7 @@ nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:10px;pa
 .no-res{text-align:center;padding:50px 20px;color:var(--text2);display:none}.no-res.show{display:block}
 .no-res .ic{font-size:2.5rem;margin-bottom:10px;opacity:.5}
 .no-res small{color:var(--text3)}
-.tc{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .tt{padding:7px 16px;border-radius:8px;color:#fff;font-size:.75rem;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.4);animation:si .3s}
 .tt-s{background:var(--good)}.tt-e{background:var(--bad)}.tt-i{background:var(--blue)}
 @keyframes si{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
@@ -316,7 +320,7 @@ footer a:hover{color:var(--accent)}
   </div>
 </div>
 
-<div class="tc" id="tc"></div>
+<div class="toasts" id="tc"></div>
 
 <footer>
   <p><span data-i18n="madeBy">Built with ❤ by</span> <a href="https://github.com/mohsen-niksirat" target="_blank" rel="noopener">Mohsen Niksirat</a> &nbsp;|&nbsp; <span data-i18n="dataFrom">Data:</span> IMDb · Rotten Tomatoes · Metacritic · TMDB · Wikipedia</p>
@@ -361,7 +365,7 @@ var I18N = {
     openImdb: 'IMDb', openLb: 'Letterboxd', openTmdb: 'TMDB', openRt: 'Rotten Tomatoes', openWiki: 'Wikipedia',
     share: 'Share', copied: 'Link copied to clipboard!',
     download: 'Download', downloadLinks: 'Download links', noLinks: 'No download links available for this title.',
-    loadingLinks: 'Loading download links…', close: 'Close', softSub: 'SoftSub', dubbed: 'Dubbed', season: 'Season',
+    loadingLinks: 'Loading download links…', close: 'Close', softSub: 'SoftSub', dubbed: 'Dubbed', noSub: 'NoSub', season: 'Season',
     compare: 'Compare', analyze: 'Analyze', selectSecond: 'Select a second title to compare', compareNow: 'Compare now',
     cancelCompare: 'Cancel', vs: 'vs',
     epRatings: 'Episode ratings', loadEp: 'Load episode ratings', noEp: 'No episode data available.',
@@ -392,7 +396,7 @@ var I18N = {
     openImdb: 'IMDb', openLb: 'Letterboxd', openTmdb: 'TMDB', openRt: 'Rotten Tomatoes', openWiki: 'ویکی‌پدیا',
     share: 'اشتراک‌گذاری', copied: 'لینک کپی شد!',
     download: 'دانلود', downloadLinks: 'لینک‌های دانلود', noLinks: 'لینک دانلود برای این عنوان موجود نیست.',
-    loadingLinks: 'در حال بارگذاری لینک‌های دانلود…', close: 'بستن', softSub: 'زیرنویس', dubbed: 'دوبله', season: 'فصل',
+    loadingLinks: 'در حال بارگذاری لینک‌های دانلود…', close: 'بستن', softSub: 'زیرنویس', dubbed: 'دوبله', noSub: 'بدون زیرنویس', season: 'فصل',
     compare: 'مقایسه', analyze: 'تحلیل', selectSecond: 'عنوان دوم را برای مقایسه انتخاب کنید', compareNow: 'مقایسه کن',
     cancelCompare: 'انصراف', vs: 'در برابر',
     epRatings: 'امتیاز اپیزودها', loadEp: 'بارگذاری امتیاز اپیزودها', noEp: 'داده‌ای برای اپیزودها موجود نیست.',
@@ -831,18 +835,28 @@ function dlItem(x) {
     '<button class="dl-copy" title="' + t('copy') + '" onclick="copyDl(event,\'' + esc(x.u) + '\')">&#128203;</button>' +
     '<a href="' + esc(x.u) + '" target="_blank" rel="noopener noreferrer">' + t('download') + ' &#11015;</a></div>';
 }
+function subLabel(sub) {
+  if (sub === 'Dubbed') return { txt: t('dubbed'), cls: 'dub' };
+  if (sub === 'NoSub') return { txt: t('noSub'), cls: 'nosub' };
+  return { txt: sub === 'SoftSub' ? t('softSub') : (sub || t('softSub')), cls: 'sub' };
+}
 function renderDownloadHTML(rec) {
   var h = '';
   if (rec.tp === 's' && rec.seasons && rec.seasons.length) {
-    var groups = {};
+    var groups = [];
     rec.seasons.forEach(function (s) {
-      var key = t('season') + ' ' + s.num + ' — ' + (s.sub === 'Dubbed' ? t('dubbed') : t('softSub'));
-      if (!groups[key]) groups[key] = [];
-      (s.links || []).forEach(function (x) { groups[key].push(x); });
+      var lb = subLabel(s.sub);
+      var key = t('season') + ' ' + s.num;
+      var idx = -1;
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].key === key && groups[i].cls === lb.cls) { idx = i; break; }
+      }
+      if (idx < 0) { groups.push({ key: key, cls: lb.cls, txt: lb.txt, links: [] }); idx = groups.length - 1; }
+      (s.links || []).forEach(function (x) { groups[idx].links.push(x); });
     });
-    Object.keys(groups).forEach(function (key) {
-      h += '<div class="dl-sec"><div class="dl-sec-t">' + esc(key) + '</div>';
-      groups[key].forEach(function (x) { h += dlItem(x); });
+    groups.forEach(function (g) {
+      h += '<div class="dl-sec"><div class="dl-sec-t">' + esc(g.key) + ' <span class="dl-chip ' + g.cls + '">' + esc(g.txt) + '</span></div>';
+      g.links.forEach(function (x) { h += dlItem(x); });
       h += '</div>';
     });
   } else if (rec.l && rec.l.length) {
