@@ -136,7 +136,8 @@ async function ensureImages(items) {
   const total = postJobs.length + backJobs.length;
   console.log(`Images to fetch: ${postJobs.length} posters, ${backJobs.length} backdrops`);
   if (total > IMG_MAX_PER_RUN) {
-    postJobs.length = Math.min(postJobs.length, Math.max(0, IMG_MAX_PER_RUN - backJobs.length));
+    // Posters first (they matter most); backdrops fill the remaining budget.
+    backJobs.length = Math.max(0, IMG_MAX_PER_RUN - postJobs.length);
     console.log(`Capped to ${postJobs.length + backJobs.length} this run (IMG_MAX_PER_RUN=${IMG_MAX_PER_RUN})`);
   }
 
