@@ -142,7 +142,7 @@ async function ensureImages(items) {
   let ok = 0, fail = 0;
   await pool(postJobs, async (job) => {
     try {
-      const buf = await fetchBin(IMG + 'w342' + job.pf);
+      const buf = await fetchBin(IMG + 'w342/' + job.pf);
       if (buf.length <= POSTER_MIN_BYTES) throw new Error('too small');
       fs.writeFileSync(path.join(POSTERS_DIR, job.pf), buf);
       ok++;
@@ -155,7 +155,7 @@ async function ensureImages(items) {
   }, IMG_CONCURRENCY);
   await pool(backJobs, async (job) => {
     try {
-      const buf = await fetchBin(IMG + 'w780' + job.bf);
+      const buf = await fetchBin(IMG + 'w780/' + job.bf);
       if (buf.length <= POSTER_MIN_BYTES) throw new Error('too small');
       fs.writeFileSync(path.join(BACKDROPS_DIR, job.bf), buf);
       ok++;
