@@ -168,6 +168,48 @@ async function ensureImages(items) {
   console.log(`Images fetched: ok=${ok} fail=${fail}`);
 }
 
+// Self-heal: for records whose local poster file is missing (e.g. the poster
+// was replaced/removed on TMDB since it was crawled), re-fetch the TMDB
+// details to get the CURRENT poster/backdrop path.
+async function repairImages(items) {
+  const missing = items.filter((rec) => {
+    const pf = tmdbFile(rec.p);
+    if (!pf) return false;
+    const file = path.join(POSTERS_DIR, pf);
+    return !(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES);
+  });
+  console.log(`Poster repair queue: ${missing.length}`);
+  if (!missing.length) return;
+  let fixed = 0;
+  for (const rec of missing) {
+    if (!rec.tmid) continue;
+    try {
+      const kind = rec.tp === 'm' ? 'movie' : 'tv';
+      const detail = await tmdb(`/${kind}/${rec.tmid}`);
+      const newPf = detail.poster_path ? detail.poster_path.slice(1) : '';
+      if (newPf && newPf !== tmdbFile(rec.p)) {
+        rec.p = IMG + 'w500/' + newPf;
+        rec.p_raw = rec.p;
+        try {
+          const buf = await fetchBin(IMG + 'w342/' + newPf);
+          if (buf.length > POSTER_MIN_BYTES) { fs.writeFileSync(path.join(POSTERS_DIR, newPf), buf); fixed++; }
+        } catch { /* retried next run */ }
+      }
+      if (detail.backdrop_path) {
+        const newBf = detail.backdrop_path.slice(1);
+        if (newBf !== tmdbFile(rec.b)) {
+          rec.b = IMG + 'w1280/' + newBf;
+          rec.b_raw = rec.b;
+        }
+      }
+    } catch (e) {
+      console.warn(`  repair ${rec.i}: ${e.message}`);
+    }
+    await sleep(130);
+  }
+  console.log(`Poster repair fixed: ${fixed}`);
+}
+
 // ------------------------------------------------------------------ http
 function fetch(url, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
@@ -515,6 +557,7 @@ function main() {
 
     // ---- 3.5) self-hosted images: download posters/backdrops ----------
     await ensureImages(items);
+    await repairImages(items);
 
     // ---- 4) write outputs ---------------------------------------------
     const sorted = items.sort((a, b) => (b.v || 0) - (a.v || 0));
