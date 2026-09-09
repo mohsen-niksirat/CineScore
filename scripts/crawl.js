@@ -171,9 +171,13 @@ async function ensureImages(items) {
 // Self-heal: for records whose local poster file is missing (e.g. the poster
 // was replaced/removed on TMDB since it was crawled), re-fetch the TMDB
 // details to get the CURRENT poster/backdrop path.
+function localImgFile(url, dir) {
+  if (!url || String(url).indexOf('/' + dir + '/') === -1) return '';
+  return String(url).split('/').pop() || '';
+}
 async function repairImages(items) {
   const missing = items.filter((rec) => {
-    const pf = tmdbFile(rec.p);
+    const pf = localImgFile(rec.p, 'posters') || tmdbFile(rec.p_raw || rec.p);
     if (!pf) return false;
     const file = path.join(POSTERS_DIR, pf);
     return !(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES);
@@ -187,20 +191,24 @@ async function repairImages(items) {
       const kind = rec.tp === 'm' ? 'movie' : 'tv';
       const detail = await tmdb(`/${kind}/${rec.tmid}`);
       const newPf = detail.poster_path ? detail.poster_path.slice(1) : '';
-      if (newPf && newPf !== tmdbFile(rec.p)) {
-        rec.p = IMG + 'w500/' + newPf;
-        rec.p_raw = rec.p;
+      const oldPf = localImgFile(rec.p, 'posters') || tmdbFile(rec.p_raw || rec.p);
+      if (newPf && newPf !== oldPf) {
+        rec.p_raw = IMG + 'w500/' + newPf;
+        rec.p = `${IMG_ORIGIN}/public/posters/${newPf}`;
         try {
           const buf = await fetchBin(IMG + 'w342/' + newPf);
           if (buf.length > POSTER_MIN_BYTES) { fs.writeFileSync(path.join(POSTERS_DIR, newPf), buf); fixed++; }
         } catch { /* retried next run */ }
       }
-      if (detail.backdrop_path) {
-        const newBf = detail.backdrop_path.slice(1);
-        if (newBf !== tmdbFile(rec.b)) {
-          rec.b = IMG + 'w1280/' + newBf;
-          rec.b_raw = rec.b;
-        }
+      const newBf = detail.backdrop_path ? detail.backdrop_path.slice(1) : '';
+      const oldBf = localImgFile(rec.b, 'backdrops') || tmdbFile(rec.b_raw || rec.b);
+      if (newBf && newBf !== oldBf) {
+        rec.b_raw = IMG + 'w1280/' + newBf;
+        rec.b = `${IMG_ORIGIN}/public/backdrops/${newBf}`;
+        try {
+          const buf = await fetchBin(IMG + 'w780/' + newBf);
+          if (buf.length > POSTER_MIN_BYTES) fs.writeFileSync(path.join(BACKDROPS_DIR, newBf), buf);
+        } catch { /* retried next run */ }
       }
     } catch (e) {
       console.warn(`  repair ${rec.i}: ${e.message}`);
