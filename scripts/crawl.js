@@ -50,6 +50,131 @@ const TMDB_NEW_MAX = parseInt(process.env.TMDB_NEW_MAX || '250', 10);
 const SKIP_TMDB = process.env.SKIP_TMDB === '1';
 
 const IMG = 'https://image.tmdb.org/t/p/';
+// Self-hosted posters: images served from this repo's GitHub Pages, so they
+// load everywhere (image.tmdb.org is DNS-blocked in some regions, e.g. Iran).
+// rec.p  -> 'posters/<file>'  (w342, downloaded by this crawler)
+// rec.b  -> 'backdrops/<file>' (w780, downloaded by this crawler)
+// The original TMDB paths are preserved in rec.p_raw / rec.b_raw as fallbacks.
+const POSTERS_DIR = path.join(PUBLIC, 'posters');
+const BACKDROPS_DIR = path.join(PUBLIC, 'backdrops');
+const POSTER_MIN_BYTES = 800;
+// Absolute origin so the URLs also work when another site (e.g. Cinema) embeds them.
+const IMG_ORIGIN = (process.env.IMG_ORIGIN || 'https://mohsen-niksirat.github.io/CineScore').replace(/\/$/, '');
+const IMG_CONCURRENCY = parseInt(process.env.IMG_CONCURRENCY || '24', 10);
+const IMG_MAX_PER_RUN = parseInt(process.env.IMG_MAX_PER_RUN || '12000', 10);
+
+function tmdbFile(url) {
+  if (!url) return '';
+  const m = String(url).match(/\/t\/p\/[^/]+\/([A-Za-z0-9._-]+)$/);
+  return m ? m[1] : '';
+}
+
+async function pool(items, worker, size) {
+  let idx = 0;
+  let failures = 0;
+  const run = async () => {
+    while (idx < items.length) {
+      const item = items[idx++];
+      try { await worker(item); } catch (e) { failures++; if (item.err) item.err(e); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(size, items.length)) }, run));
+  return failures;
+}
+
+function fetchBin(url, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: timeoutMs, headers: { 'User-Agent': 'CineScoreCrawler/2.0 (image fetcher; https://github.com/mohsen-niksirat/CineScore)' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        return fetchBin(res.headers.location, timeoutMs).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode} ${url}`)); }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => req.destroy(new Error(`Timeout: ${url}`)));
+  });
+}
+
+// Download all missing poster/backdrop images and rewrite rec.p / rec.b to the
+// self-hosted paths. Returns nothing; mutates records in place.
+async function ensureImages(items) {
+  if (!fs.existsSync(POSTERS_DIR)) fs.mkdirSync(POSTERS_DIR, { recursive: true });
+  if (!fs.existsSync(BACKDROPS_DIR)) fs.mkdirSync(BACKDROPS_DIR, { recursive: true });
+
+  const state = loadJSON(STATE_FILE, {});
+  const imgFail = new Set(state.imgFail || []);
+  let imgFailChanged = false;
+
+  const postJobs = [], backJobs = [];
+  for (const rec of items) {
+    const pf = tmdbFile(rec.p);
+    if (pf) {
+      const file = path.join(POSTERS_DIR, pf);
+      rec.p_raw = rec.p_raw || rec.p;
+      rec.p = `${IMG_ORIGIN}/public/posters/${pf}`;
+      if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES) && !imgFail.has('p:' + pf)) {
+        postJobs.push({ pf });
+      }
+    }
+    const bf = tmdbFile(rec.b);
+    if (bf) {
+      const file = path.join(BACKDROPS_DIR, bf);
+      rec.b_raw = rec.b_raw || rec.b;
+      rec.b = `${IMG_ORIGIN}/public/backdrops/${bf}`;
+      if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES) && !imgFail.has('b:' + bf)) {
+        backJobs.push({ bf });
+      }
+    }
+  }
+
+  const total = postJobs.length + backJobs.length;
+  console.log(`Images to fetch: ${postJobs.length} posters, ${backJobs.length} backdrops`);
+  if (total > IMG_MAX_PER_RUN) {
+    postJobs.length = Math.min(postJobs.length, Math.max(0, IMG_MAX_PER_RUN - backJobs.length));
+    console.log(`Capped to ${postJobs.length + backJobs.length} this run (IMG_MAX_PER_RUN=${IMG_MAX_PER_RUN})`);
+  }
+
+  let ok = 0, fail = 0;
+  await pool(postJobs, async (job) => {
+    try {
+      const buf = await fetchBin(IMG + 'w342' + job.pf);
+      if (buf.length <= POSTER_MIN_BYTES) throw new Error('too small');
+      fs.writeFileSync(path.join(POSTERS_DIR, job.pf), buf);
+      ok++;
+    } catch (e) {
+      fail++;
+      imgFail.add('p:' + job.pf);
+      imgFailChanged = true;
+      console.warn(`  poster ${job.pf}: ${e.message}`);
+    }
+  }, IMG_CONCURRENCY);
+  await pool(backJobs, async (job) => {
+    try {
+      const buf = await fetchBin(IMG + 'w780' + job.bf);
+      if (buf.length <= POSTER_MIN_BYTES) throw new Error('too small');
+      fs.writeFileSync(path.join(BACKDROPS_DIR, job.bf), buf);
+      ok++;
+    } catch (e) {
+      fail++;
+      imgFail.add('b:' + job.bf);
+      imgFailChanged = true;
+      console.warn(`  backdrop ${job.bf}: ${e.message}`);
+    }
+  }, IMG_CONCURRENCY);
+
+  // Failed downloads keep the self-hosted URL (frontend placeholder kicks in)
+  // plus p_raw/b_raw so the frontend can try TMDB directly as a fallback.
+  if (imgFailChanged) {
+    state.imgFail = [...imgFail];
+    fs.writeFileSync(STATE_FILE, JSON.stringify(state));
+  }
+  console.log(`Images fetched: ok=${ok} fail=${fail}`);
+}
 
 // ------------------------------------------------------------------ http
 function fetch(url, timeoutMs = 20000) {
@@ -121,7 +246,7 @@ async function tmdbEnrich(rec) {
   rec.tm = detail.vote_average || 0;
   rec.tv = detail.vote_count || 0;
   if (detail.backdrop_path) rec.b = IMG + 'w1280' + detail.backdrop_path;
-  if (detail.poster_path && !rec.p) rec.p = IMG + 'w500' + detail.poster_path;
+  if (detail.poster_path) rec.p = IMG + 'w500' + detail.poster_path;
   if (detail.genres && detail.genres.length && !rec.g) {
     rec.g = detail.genres.map((x) => x.name).join(', ');
   }
@@ -396,12 +521,15 @@ function main() {
     }
     console.log(`Wikipedia enriched this run: ${wikiOk}`);
 
+    // ---- 3.5) self-hosted images: download posters/backdrops ----------
+    await ensureImages(items);
+
     // ---- 4) write outputs ---------------------------------------------
     const sorted = items.sort((a, b) => (b.v || 0) - (a.v || 0));
     const now = new Date().toISOString();
     const out = { updated: now, items: sorted };
     fs.writeFileSync(DB_FILE, JSON.stringify(out));
-    const titles = sorted.map((x) => ({ i: x.i, t: x.t, y: x.y || 0, tp: x.tp, r: x.r || 0, v: x.v || 0, p: x.p || '' }));
+    const titles = sorted.map((x) => ({ i: x.i, t: x.t, y: x.y || 0, tp: x.tp, r: x.r || 0, v: x.v || 0, p: x.p || '', p_raw: x.p_raw || '' }));
     fs.writeFileSync(TITLES_FILE, JSON.stringify({ updated: now, items: titles }));
     fs.writeFileSync(STATE_FILE, JSON.stringify({
       omdbDone: [...omdbDone],
