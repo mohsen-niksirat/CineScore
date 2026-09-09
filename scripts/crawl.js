@@ -101,32 +101,29 @@ function fetchBin(url, timeoutMs = 30000) {
 }
 
 // Download all missing poster/backdrop images and rewrite rec.p / rec.b to the
-// self-hosted paths. Returns nothing; mutates records in place.
+// self-hosted paths. Missing images are retried every run (bounded by
+// IMG_MAX_PER_RUN) so posters that appear later on TMDB get picked up.
 async function ensureImages(items) {
   if (!fs.existsSync(POSTERS_DIR)) fs.mkdirSync(POSTERS_DIR, { recursive: true });
   if (!fs.existsSync(BACKDROPS_DIR)) fs.mkdirSync(BACKDROPS_DIR, { recursive: true });
-
-  const state = loadJSON(STATE_FILE, {});
-  const imgFail = new Set(state.imgFail || []);
-  let imgFailChanged = false;
 
   const postJobs = [], backJobs = [];
   for (const rec of items) {
     const pf = tmdbFile(rec.p);
     if (pf) {
       const file = path.join(POSTERS_DIR, pf);
-      rec.p_raw = rec.p_raw || rec.p;
+      rec.p_raw = rec.p_raw || (String(rec.p).indexOf('/t/p/') !== -1 ? rec.p : rec.p_raw || '');
       rec.p = `${IMG_ORIGIN}/public/posters/${pf}`;
-      if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES) && !imgFail.has('p:' + pf)) {
+      if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES)) {
         postJobs.push({ pf });
       }
     }
     const bf = tmdbFile(rec.b);
     if (bf) {
       const file = path.join(BACKDROPS_DIR, bf);
-      rec.b_raw = rec.b_raw || rec.b;
+      rec.b_raw = rec.b_raw || (String(rec.b).indexOf('/t/p/') !== -1 ? rec.b : rec.b_raw || '');
       rec.b = `${IMG_ORIGIN}/public/backdrops/${bf}`;
-      if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES) && !imgFail.has('b:' + bf)) {
+      if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES)) {
         backJobs.push({ bf });
       }
     }
@@ -148,8 +145,6 @@ async function ensureImages(items) {
       ok++;
     } catch (e) {
       fail++;
-      imgFail.add('p:' + job.pf);
-      imgFailChanged = true;
       console.warn(`  poster ${job.pf}: ${e.message}`);
     }
   }, IMG_CONCURRENCY);
@@ -161,18 +156,10 @@ async function ensureImages(items) {
       ok++;
     } catch (e) {
       fail++;
-      imgFail.add('b:' + job.bf);
-      imgFailChanged = true;
       console.warn(`  backdrop ${job.bf}: ${e.message}`);
     }
   }, IMG_CONCURRENCY);
 
-  // Failed downloads keep the self-hosted URL (frontend placeholder kicks in)
-  // plus p_raw/b_raw so the frontend can try TMDB directly as a fallback.
-  if (imgFailChanged) {
-    state.imgFail = [...imgFail];
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state));
-  }
   console.log(`Images fetched: ok=${ok} fail=${fail}`);
 }
 
