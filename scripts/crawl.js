@@ -109,19 +109,23 @@ async function ensureImages(items) {
 
   const postJobs = [], backJobs = [];
   for (const rec of items) {
-    const pf = tmdbFile(rec.p);
+    // Source URL: prefer the stored TMDB raw URL; fall back to p itself when
+    // the dataset still holds the original TMDB URL.
+    const rawP = (rec.p_raw && String(rec.p_raw).indexOf('/t/p/') !== -1) ? rec.p_raw : rec.p;
+    const pf = tmdbFile(rawP);
     if (pf) {
       const file = path.join(POSTERS_DIR, pf);
-      rec.p_raw = rec.p_raw || (String(rec.p).indexOf('/t/p/') !== -1 ? rec.p : rec.p_raw || '');
+      rec.p_raw = rawP;
       rec.p = `${IMG_ORIGIN}/public/posters/${pf}`;
       if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES)) {
         postJobs.push({ pf });
       }
     }
-    const bf = tmdbFile(rec.b);
+    const rawB = (rec.b_raw && String(rec.b_raw).indexOf('/t/p/') !== -1) ? rec.b_raw : rec.b;
+    const bf = tmdbFile(rawB);
     if (bf) {
       const file = path.join(BACKDROPS_DIR, bf);
-      rec.b_raw = rec.b_raw || (String(rec.b).indexOf('/t/p/') !== -1 ? rec.b : rec.b_raw || '');
+      rec.b_raw = rawB;
       rec.b = `${IMG_ORIGIN}/public/backdrops/${bf}`;
       if (!(fs.existsSync(file) && fs.statSync(file).size > POSTER_MIN_BYTES)) {
         backJobs.push({ bf });
